@@ -78,7 +78,7 @@ $sysinfo - Reports information about the host system
 
 @client.command()
 async def userinfo(ctx):
-    
+
 
 @client.command()
 async def sysinfo(ctx):
@@ -116,8 +116,6 @@ async def sysinfo(ctx):
 
     embedVar.add_field(name="Host Memory Total", value = kb2hsize(memTotal), inline = True)
     embedVar.add_field(name="Host Memory Free", value = kb2hsize(memFree), inline = True)
-    
-
 
     await ctx.send(embed = embedVar)
 

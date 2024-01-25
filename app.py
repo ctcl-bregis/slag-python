@@ -78,7 +78,9 @@ $sysinfo - Reports information about the host system
 
 @client.command()
 async def userinfo(ctx):
+    embedVar = discord.Embed(title="User Information for", color=0xf0d000)
 
+    await ctx.send(embed = embedVar)
 
 @client.command()
 async def sysinfo(ctx):

@@ -71,7 +71,7 @@ async def on_message(message):
                 csv_log(message_data, msg_log_header, f"logs/{str(message.guild.id)}/{str(message.author.id)}_msg_log.csv")
             else:
                 sys_logger.info(f"Directory for guild \"{message.guild.id}\" does not exist. Creating one now.")
-                os.path.mkdir(f"logs/{message.guild.id}")
+                os.mkdir(f"logs/{message.guild.id}")
     else:
         csv_log(message_data, msg_log_header, f"logs/dm/{message.author.name}_msg_log.csv")
 

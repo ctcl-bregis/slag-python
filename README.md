@@ -15,10 +15,8 @@ sys_log.log contains activity about the bot itself.
 #### act_log.csv
 act_log.csv contains user activity such as leaves, joins
 
-#### [guild_id]_msg_log.csv
-There is a message log in the CSV format for each guild that the bot reads messages from
-
-If the messge is not associated with a guild, it would be put into other_msg_log.csv
+#### [guild_id]/[user_id]_msg_log.csv
+There is a message log in the CSV format for each user in each guild
 
 ## Requirements
 This bot is meant to be hosted in a Linux environment. Some features may not be available on other platforms.

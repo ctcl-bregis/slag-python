@@ -1,8 +1,8 @@
-# SLAG: Security, Logging, Analytics and General purpose bot
-
-<div>
-  <img src="slag_logo.svg" style="width: 25%" alt="SLAG"/>
+<div align="center">
+  <img src="slag_logo.svg" style="width: 50%" alt="SLAG"/>
 </div>
+
+# SLAG: Security, Logging, Analytics and General purpose bot
 
 SLAG is a bot for the Discord chat service. It was created for small guilds such as school clubs.
 

@@ -1,6 +1,7 @@
 {"config": {
     "default_theme": "F0D000",
     "cog_whitelist": [
-        "base"
+        "base",
+        "log"
     ]
 }}

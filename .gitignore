@@ -165,3 +165,7 @@ token.txt
 # Logs
 logs/
 
+# User data
+birthdays.json
+
+

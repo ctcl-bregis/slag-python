@@ -9,12 +9,15 @@ import socket
 import platform
 from discord.ext import commands
 from discord.ext.commands.errors import MemberNotFound
+from discord.ext.commands import has_permissions
 from discord.errors import NotFound
 import discord
 import subprocess
 import re
 import multiprocessing
 import time
+import sys
+import requests
 
 from lib import kb2hsize
 
@@ -52,8 +55,6 @@ class Base(commands.Cog):
         date_format = "%B %d, %Y %I:%M %p"
 
         # Default to the user that invoked the command
-        print(user)
-
         if user is None:
             user = ctx.author
             fetched_user = await self.client.fetch_user(ctx.author.id)
@@ -80,16 +81,15 @@ class Base(commands.Cog):
       
         embed.add_field(name = "Username", value = user.name, inline = True)
         embed.add_field(name = "Global Name", value = user.global_name, inline = True)
-        embed.add_field(name = "Nickname", value = user.display_name, inline = True)
+        if isinstance(user, discord.Member):
+            embed.add_field(name = "Nickname", value = user.display_name, inline = True)
 
         embed.add_field(name = "User ID", value = user.id, inline = True)
         embed.add_field(name = "Is bot", value = user.bot, inline = True)
 
         if isinstance(user, discord.Member):
             embed.add_field(name = "Joined", value = user.joined_at.strftime(date_format), inline = False)
-
         embed.add_field(name = "Registered", value = user.created_at.strftime(date_format), inline = False)
-
         if isinstance(user, discord.Member):
             if user in ctx.guild.members:
                 members = sorted(ctx.guild.members, key=lambda m: m.joined_at)
@@ -118,7 +118,7 @@ class Base(commands.Cog):
         user_flags += f"User is a HypeSquad Bravery Member: {user.public_flags.hypesquad_bravery}\n"
         user_flags += f"User is a HypeSquad Brilliance Member: {user.public_flags.hypesquad_brilliance}\n"
         user_flags += f"User is a HypeSquad Balance Member: {user.public_flags.hypesquad_balance}\n"
-        user_flags += f"User is an Early Supporter (had Nitro prior to October 10, 2018): {user.public_flags.early_supporter}\n"
+        user_flags += f"User is an Early Supporter (Nitro before Oct 10 2018): {user.public_flags.early_supporter}\n"
         user_flags += f"User is a Team User: {user.public_flags.team_user}\n"
         user_flags += f"User is a System User: {user.public_flags.system}\n"
         user_flags += f"User is a Verified Bot: {user.public_flags.verified_bot}\n"
@@ -178,6 +178,54 @@ class Base(commands.Cog):
     #@commands.command()
     #async def botinfo(self, ctx):
     #    self
+
+    # Admin only for now since this can send a message in any channel
+    @commands.command()
+    @has_permissions(administrator=True)
+    async def attach2msg(self, ctx, *, channel: str = None):
+        if channel == None:
+            await ctx.send("Missing argument: Channel")
+            return
+
+        if len(ctx.message.attachments) > 0:
+            att_url = ctx.message.attachments[0].url
+            r = requests.get(att_url, stream = True)
+            r.raw.decode_content = True
+            if r.headers["content-type"] in ["text/markdown; charset=utf-8", "text/plain; charset=utf-8"]:
+                if len(r.text) > 2000:
+                    for split in (r.text[0+i:2000+i] for i in range(0, len(r.text), 2000)):
+                        await ctx.send(split)
+                else:
+                    await ctx.send(r.text)
+            else:
+                await ctx.send("File appears to not be markdown or text")
+        elif len(ctx.message.attachments) > 1:
+            await ctx.send("Too many attachements.\nUsage: mdmsg <channel> + .md or .txt file attachement")
+
+        else:
+            await ctx.send("No attachments found.\nUsage: mdmsg <channel> + .md ot .txt file attachement")
+
+    # Admin only for now since this could be spammed
+    @commands.command()
+    @has_permissions(administrator=True)
+    async def channellist(self, ctx):
+        msg = ""
+        channeldict = {}
+        nocategory = []
+        categorynames = []
+
+        for category in ctx.guild.categories:
+            channeldict[category.name] = []
+            categorynames = []
+
+
+        # Get channels that are not categorized first
+        # This might be inefficient
+        for channel in ctx.guild.channels:
+            if channel.category == None:
+                nocategory.append(channel)
+            elif channel.category in categorynames:
+                channeldict[channel.category.name].append(channel)    
 
 async def setup(client):
     await client.add_cog(Base(client))

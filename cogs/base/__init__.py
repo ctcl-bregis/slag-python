@@ -2,7 +2,7 @@
 # File: cogs/base.py
 # Purpose: Base command definitions
 # Created: January 26, 2024
-# Modified: January 27, 2024
+# Modified: January 29, 2024
 
 import psutil
 import socket
@@ -19,7 +19,7 @@ import time
 import sys
 import requests
 
-from lib import kb2hsize
+from lib import kb2hsize, msgsplit
 
 # Display online status
 status = {
@@ -208,24 +208,69 @@ class Base(commands.Cog):
     # Admin only for now since this could be spammed
     @commands.command()
     @has_permissions(administrator=True)
-    async def channellist(self, ctx):
-        msg = ""
+    async def channellist(self, ctx, *, filt = "everyone"):
+        msg = "# Channels\n"
         channeldict = {}
         nocategory = []
         categorynames = []
 
         for category in ctx.guild.categories:
             channeldict[category.name] = []
-            categorynames = []
+            categorynames.append(category.name)
 
+        if filt == "everyone":
+            for channel in ctx.guild.channels:
+                if channel.category == None:
+                    if channel.permissions_for(ctx.guild.default_role).view_channel:
+                        nocategory.append(channel)
+                else:
+                    if channel.category.name in categorynames and channel.permissions_for(ctx.guild.default_role).view_channel:
+                        channeldict[channel.category.name].append(channel)    
+        elif filt == "all":
+            for channel in ctx.guild.channels:
+                if channel.category == None:
+                    nocategory.append(channel)
+                else:
+                    if channel.category.name in categorynames:
+                        channeldict[channel.category.name].append(channel)    
 
-        # Get channels that are not categorized first
-        # This might be inefficient
-        for channel in ctx.guild.channels:
-            if channel.category == None:
-                nocategory.append(channel)
-            elif channel.category in categorynames:
-                channeldict[channel.category.name].append(channel)    
+        if nocategory != []:
+            for channel in nocategory:
+                if channel.type == discord.ChannelType.text:
+                    msg += f":speech_balloon:: {channel.jump_url}\n"
+                elif channel.type == discord.ChannelType.voice:
+                    msg += f":microphone2:: `{channel.name}`\n"
+                elif channel.type == discord.ChannelType.news:
+                    msg += f":mega:: {channel.jump_url}\n"
+                elif channel.type == discord.ChannelType.forum:
+                    msg += f":memo:: {channel.jump_url}\n"
+
+        for categoryname in categorynames:
+            if channeldict[categoryname] != []:
+                msg += f"## {categoryname}\n"
+                for channel in channeldict[categoryname]:
+                    if channel.type == discord.ChannelType.text:
+                        msg += f":speech_balloon:: {channel.jump_url}\n"
+                    elif channel.type == discord.ChannelType.voice:
+                        msg += f":microphone2:: `{channel.name}`\n"
+                    elif channel.type == discord.ChannelType.news:
+                        msg += f":mega:: {channel.jump_url}\n"
+                    elif channel.type == discord.ChannelType.forum:
+                        msg += f":memo:: {channel.jump_url}\n"
+
+        if msg == "":
+            return
+        
+        if len(msg) > 2000:
+            splitmsg = msg.split("\n")
+
+            msg = msgsplit(2000, splitmsg)
+
+            for part in msg:
+                await ctx.send(part)
+        else:
+            await ctx.send(msg)
+
 
 async def setup(client):
     await client.add_cog(Base(client))

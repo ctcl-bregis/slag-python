@@ -2,7 +2,7 @@
 # File: app.py
 # Purpose: Functions used by the bot, similar to lib.rs 
 # Created: January 25, 2024
-# Modified: January 28, 2024
+# Modified: January 29, 2024
 
 import csv
 import logging
@@ -43,3 +43,34 @@ def kb2hsize(size_bytes):
     p = math.pow(1024, i)
     s = round(size_bytes / p, 2)
     return "%s %s" % (s, size_name[i])
+
+def _slicegen(maxchars, stringlist):
+    runningcount = 0
+    tmpslice = []
+    for i, item in enumerate(stringlist):
+        runningcount += len(item)
+        if runningcount <= int(maxchars):
+            tmpslice.append(i)
+        else:
+            yield tmpslice
+            tmpslice = [i]
+            runningcount = len(item)
+        
+    yield(tmpslice)
+
+def msgsplit(maxchars, stringlist):
+
+    slices = list(_slicegen(maxchars, stringlist))
+    splitmsg = []
+
+    for slicelist in slices:
+        tmp = ""
+        for stringslice in slicelist:
+            
+            tmp += stringlist[stringslice] + "\n"
+
+        splitmsg.append(tmp)
+
+    return splitmsg
+    
+    

@@ -252,6 +252,7 @@ class Base(Cog):
         for categoryname in categorynames:
             if channeldict[categoryname] != []:
                 msg += f"## {categoryname}\n"
+                channeldict[categoryname].sort(key=lambda x: x.position, reverse=False)
                 for channel in channeldict[categoryname]:
                     if channel.type == discord.ChannelType.text:
                         msg += f":speech_balloon:: {channel.jump_url}\n"
@@ -264,11 +265,11 @@ class Base(Cog):
 
         if msg == "":
             return
-        
-        if len(msg) > 2000:
+
+        if len(msg) > 1500:
             splitmsg = msg.split("\n")
 
-            msg = msgsplit(2000, splitmsg)
+            msg = msgsplit(1500, splitmsg)
 
             for part in msg:
                 await ctx.send(part)

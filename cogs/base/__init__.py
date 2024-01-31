@@ -2,14 +2,14 @@
 # File: cogs/base.py
 # Purpose: Base command definitions
 # Created: January 26, 2024
-# Modified: January 29, 2024
+# Modified: January 31, 2024
 
 import psutil
 import socket
 import platform
 from discord.ext import commands
 from discord.ext.commands.errors import MemberNotFound
-from discord.ext.commands import has_permissions
+from discord.ext.commands import has_permissions, Cog
 from discord.errors import NotFound
 import discord
 import subprocess
@@ -30,7 +30,7 @@ status = {
     "do_not_disturb": "Do Not Distrub"
 }
 
-class Base(commands.Cog):
+class Base(Cog):
     def __init__(self, client):
         self.client = client
 
@@ -80,16 +80,19 @@ class Base(commands.Cog):
         embed.set_thumbnail(url = user.display_avatar)
       
         embed.add_field(name = "Username", value = user.name, inline = True)
-        embed.add_field(name = "Global Name", value = user.global_name, inline = True)
         if isinstance(user, discord.Member):
-            embed.add_field(name = "Nickname", value = user.display_name, inline = True)
+            embed.add_field(name = "Nickname", value = user.nick, inline = True)
+        else:
+            embed.add_field(name = "Global Name", value = user.display_name, inline = True)
 
         embed.add_field(name = "User ID", value = user.id, inline = True)
-        embed.add_field(name = "Is bot", value = user.bot, inline = True)
 
         if isinstance(user, discord.Member):
             embed.add_field(name = "Joined", value = user.joined_at.strftime(date_format), inline = False)
+        
         embed.add_field(name = "Registered", value = user.created_at.strftime(date_format), inline = False)
+
+        # Display roles
         if isinstance(user, discord.Member):
             if user in ctx.guild.members:
                 members = sorted(ctx.guild.members, key=lambda m: m.joined_at)
@@ -97,16 +100,15 @@ class Base(commands.Cog):
             else:
                 embed.add_field(name = "Join position", value = "N/A", inline = False)
 
-        # Display roles
-        if isinstance(user, discord.Member):
             if len(user.roles) > 1:
                 role_string = ' '.join([r.mention for r in user.roles][1:])
                 embed.add_field(name = "Roles [{}]".format(len(user.roles) - 1), value = role_string, inline = False)
 
-        if isinstance(user, discord.Member):
             embed.add_field(name = "Status on Mobile", value = status[str(user.mobile_status)], inline = True)
             embed.add_field(name = "Status on Desktop", value = status[str(user.desktop_status)], inline = True)
             embed.add_field(name = "Status on Web", value = status[str(user.web_status)], inline = True)
+
+        embed.add_field(name = "Is bot", value = user.bot, inline = True)
 
         # Avoiding the use of flag bits here since it overcomplicates things and Python endianness depends on the CPU which could cause problems if this is hosted on a CPU arch other than x86(-64) such as a Raspberry Pi
         user_flags = ""
@@ -124,11 +126,13 @@ class Base(commands.Cog):
         user_flags += f"User is a Verified Bot: {user.public_flags.verified_bot}\n"
         user_flags += f"User is an Early Verified Bot Developer: {user.public_flags.verified_bot_developer}\n"
         user_flags += f"User is a Discord Certified Moderator: {user.public_flags.discord_certified_moderator}\n"
-        user_flags += f"User is flagged as a spammer by Discord: {user.public_flags.spammer}\n"
+        #user_flags += f"User is flagged as a spammer by Discord: {user.public_flags.spammer}\n"
         user_flags += f"User is an Active Developer: {user.public_flags.active_developer}\n"
 
         embed.add_field(name = "User Flags", value = user_flags, inline = False)
         
+        embed.add_field(name = "User URL", value = user.jump_url, inline = False)
+
         await ctx.send(embed = embed)
 
     @commands.command()
@@ -272,5 +276,5 @@ class Base(commands.Cog):
             await ctx.send(msg)
 
 
-async def setup(client):
-    await client.add_cog(Base(client))
+def setup(client):
+    client.add_cog(Base(client))

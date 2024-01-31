@@ -2,7 +2,7 @@
   <img src="slag_logo.svg" style="width: 50%" alt="SLAG"/>
 </div>
 
-# SLAG: Security, Logging, Analytics and General purpose bot
+# SLAG "Channel Catfish"
 
 SLAG is a bot for the Discord chat service. It was created for small guilds such as school clubs.
 
@@ -11,8 +11,6 @@ SLAG is an initialism of "Security, Logging, Analytics and General Purpose". The
 Unlike many other bots, there are no donations, premium or voting.
 
 ## Features
-Features are extended through the use of [Cogs](https://discordpy.readthedocs.io/en/v2.3.2/ext/commands/cogs.html). 
-
 
 ### Logs
 There are three different logs that SLAG writes to
@@ -28,3 +26,5 @@ There is a message log in the CSV format for each user in each guild
 
 ## Requirements
 This bot is meant to be hosted in a Linux environment. Some features may not be available on other platforms.
+
+As of January 31, 2024, the bot now uses pycord instead of discord.py

@@ -2,17 +2,21 @@
 # File: cogs/log.py
 # Purpose: Message and action logging
 # Created: January 27, 2024
-# Modified: January 28, 2024
+# Modified: January 31, 2024
 
 # NOTE: This cog is unrelated to the discord.py and sys_logger loggers. This cog is for recording user and guild activity.
 
 import csv
 import os
+import logging
 from datetime import datetime
 
 from discord.errors import NotFound
 from discord.ext import commands
+from discord.ext.commands import Cog
 from discord.ext.commands.errors import MemberNotFound
+
+sys_logger = logging.getLogger("sys_logger")
 
 # Reused code from ctclsite-python
 def csv_log(data, header, filename):
@@ -76,7 +80,7 @@ def csv_log(data, header, filename):
 msg_log_header = ["time", "id", "content", "author", "channel", "channelid"]
 
 
-class Logger(commands.Cog):
+class Logger(Cog):
     def __init__(self, client):
         self.client = client
 
@@ -87,7 +91,7 @@ class Logger(commands.Cog):
             os.mkdir("logs/dm/")
         
 
-    @commands.Cog.listener()
+    @Cog.listener()
     async def on_message(self, message):
         message_data = {}
     
@@ -120,5 +124,5 @@ class Logger(commands.Cog):
                 csv_log(message_data, msg_log_header, f"logs/dm/{message.author.name}_msg_log.csv")
 
 
-async def setup(client):
-    await client.add_cog(Logger(client))
+def setup(client):
+    client.add_cog(Logger(client))

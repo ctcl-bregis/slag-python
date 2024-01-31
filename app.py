@@ -2,7 +2,7 @@
 # File: app.py
 # Purpose: Main application
 # Created: January 24, 2024
-# Modified: January 28, 2024
+# Modified: January 30, 2024
 
 import asyncio
 import csv
@@ -12,14 +12,19 @@ import os
 import sys
 import time
 import socket
+import subprocess
+import re
 from datetime import datetime
 
 import discord
 from discord.ext import commands
 from discord.ext.commands import Bot
-from discord.ext.commands.errors import MissingRequiredArgument, ExtensionNotFound
+from discord.ext.commands.errors import MissingRequiredArgument
 
 from lib import logger_resetup, logger_setup
+
+if not os.path.exists("logs/"):
+    os.mkdir("logs/")
 
 sys_logger = logger_setup("sys_logger", "logs/sys_log.log")
 
@@ -28,10 +33,10 @@ intents.presences = True
 intents.members = True
 intents.message_content = True
 
-client = commands.Bot(command_prefix = "$", intents = intents, help_command = None, activity = discord.Activity(type=discord.ActivityType.watching, name=f"$help from {socket.gethostname()}"))
+client = commands.Bot(command_prefix = "$", intents = intents, help_command = None, activity = discord.Activity(type=discord.ActivityType.watching, name = f"$help from {socket.gethostname()}"))
 
 try:
-    with open("config.json") as f:
+    with open("config/config.json") as f:
         config = f.read()
 except Exception as err:
     sys_logger.error(f"File read error when processing \"config.json\": {err}")
@@ -55,16 +60,6 @@ async def on_ready():
     sys_logger.info("SLAG present in guilds:")
     for guild in client.guilds:
         sys_logger.info(f"{guild.name} - {guild.id}")
-
-    cogs = get_cogs()
-    sys_logger.info(f"Cogs found in \"cogs/\": {cogs}")
-    for cog in cogs:
-        sys_logger.info(f"Cog {cog} registered")
-        try:
-            await client.load_extension(cog)
-        except ExtensionNotFound:
-            sys_logger.warn(f"Cog {cog} not found")
-
 
 @client.event
 async def on_guild_join(guild):
@@ -96,6 +91,14 @@ logger_resetup(logging.getLogger("discord.gateway"), "logs/sys_log.log")
 if os.path.exists("token.txt"):
     with open("token.txt") as f:
         token = f.read()
+
+    cogs = get_cogs()
+    sys_logger.info(f"Cogs found in \"cogs/\": {cogs}")
+    for cog in cogs:
+        if client.load_extension(cog):
+            sys_logger.info(f"Cog {cog} registered")
+
+        
 
     client.run(token)
 

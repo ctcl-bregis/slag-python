@@ -2,7 +2,7 @@
 # File: app.py
 # Purpose: Functions used by the bot, similar to lib.rs 
 # Created: January 25, 2024
-# Modified: February 5, 2024
+# Modified: February 6, 2024
 
 import discord
 import csv
@@ -78,5 +78,6 @@ def msgsplit(maxchars, stringlist):
 def mkerrembed(msg):
 
     embed = discord.Embed(title = "Error", color = 0xff0000)
-    embed.add_field(msg)
+    embed.add_field(name = "Message", value = msg)
     
+    return embed

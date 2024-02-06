@@ -2,7 +2,7 @@
 # File: app.py
 # Purpose: Main application
 # Created: January 24, 2024
-# Modified: January 30, 2024
+# Modified: February 6, 2024
 
 import asyncio
 import csv
@@ -75,14 +75,14 @@ if os.path.exists("token.txt"):
     with open("token.txt") as f:
         token = f.read()
 
+    if not os.path.exists("data/"):
+        os.mkdir("data/")
+
     cogs = get_cogs()
     sys_logger.info(f"Cogs found in \"cogs/\": {cogs}")
     for cog in cogs:
         if client.load_extension(cog):
             sys_logger.info(f"Cog {cog} registered")
-
-    if not os.path.exists("data/"):
-        os.mkdir("data/")
         
     client.run(token)
 

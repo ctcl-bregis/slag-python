@@ -168,3 +168,4 @@ logs/
 # User data
 birthdays.json
 *.db
+data/

@@ -2,7 +2,7 @@
 # File: cogs/users/__init__.py
 # Purpose: User profiling and birthday reminder cog
 # Created: January 27, 2024
-# Modified: February 5, 2024
+# Modified: February 6, 2024
 
 import csv
 import os
@@ -42,13 +42,11 @@ tzs = zoneinfo.available_timezones()
 class Users(Cog):
     def __init__(self, client):
         self.client = client
-        self.dbc = sqlite3.connect("user_meta.db")
-        self.cur = self.dbc.cursor()
-
         self.members = []
 
         if not os.path.exists("data/users/"):
             os.mkdir("data/users/")
+
 
     def refreshusers(self):
         # Store user IDs so the code does not compare the entire member object
@@ -56,13 +54,23 @@ class Users(Cog):
 
         for guild in self.client.guilds:
             for member in guild.members:
-                if member.id not in self.memberids and member.bot == False:
+                if member.id not in memberids and member.bot == False:
                     self.members.append(member)
 
-        for memberid in memberids:
-            if not os.path.exists(f"data/user_{memberid}.db"):
-                dbc = sqlite3.connect("data/user_{memberid}.db")
-                con = dbc.cursor()
+        for member in self.members:
+            memberid = member.id
+            if not os.path.exists(f"data/users/user_{memberid}.db"):
+                dbc = sqlite3.connect(f"data/users/user_{memberid}.db")
+                cur = dbc.cursor()
+
+
+
+                dbc.close()
+
+    @Cog.listener()
+    async def on_ready(self):
+        pass
+        #self.refreshusers()
 
     @discord.slash_command(name = "birthdayset", description = "Set your birthday")
     async def birthday_set(self, ctx: discord.ApplicationContext, 

@@ -1,7 +1,7 @@
 {"config": {
     "cog_whitelist": [
         "base",
-        "birthday",
+        "users",
         "log",
         "welcome"
     ]

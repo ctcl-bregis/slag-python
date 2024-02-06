@@ -65,23 +65,6 @@ async def on_ready():
 async def on_guild_join(guild):
     sys_logger.info(f"SLAG joined guild named {guild.name} with ID {guild.id}")
 
-@client.event
-async def on_message(message):
-    ctx = await client.get_context(message)
-    if ctx.valid:
-        if message.guild:
-            sys_logger.info(f"User \"{message.author.name}\" ({message.author.id}) in channel {message.channel.id} in guild {message.guild.id} invoked command: {message.content}")
-            try:
-                await client.process_commands(message)
-            except MissingRequiredArgument:
-                await ctx.send("Missing arguments")
-        else:
-            sys_logger.info(f"User \"{message.author.name}\" in DMs invoked command: {message.content}")
-            await client.process_commands(message)
-    else:
-        pass
-
-
 # Redirect all of the discord.py logs into sys_log
 logger_resetup(logging.getLogger("asyncio"), "logs/sys_log.log")
 logger_resetup(logging.getLogger("discord.http"), "logs/sys_log.log")
@@ -98,7 +81,8 @@ if os.path.exists("token.txt"):
         if client.load_extension(cog):
             sys_logger.info(f"Cog {cog} registered")
 
+    if not os.path.exists("data/"):
+        os.mkdir("data/")
         
-
     client.run(token)
 

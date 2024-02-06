@@ -2,7 +2,7 @@
 # File: cogs/base.py
 # Purpose: Base command definitions
 # Created: January 26, 2024
-# Modified: January 31, 2024
+# Modified: February 4, 2024
 
 import psutil
 import socket
@@ -34,7 +34,7 @@ class Base(Cog):
     def __init__(self, client):
         self.client = client
 
-    @commands.command(name = "help")
+    @discord.slash_command(name = "help")
     async def _help(self, ctx):
         help_text_user = """
     $help - Lists commands
@@ -44,9 +44,9 @@ class Base(Cog):
         embed = discord.Embed(title = "Commands", color = 0xf0d000)
         embed.add_field(name = "User Commands", value = help_text_user, inline = False)
      
-        await ctx.send(embed = embed)
+        await ctx.respond(embed = embed)
     
-    @commands.command()
+    @discord.slash_command()
     async def userinfo(self, ctx, *, user: discord.User = None):
         if isinstance(ctx.channel, discord.DMChannel):
             await ctx.send("Command must be used in a guild")
@@ -133,9 +133,9 @@ class Base(Cog):
         
         embed.add_field(name = "User URL", value = user.jump_url, inline = False)
 
-        await ctx.send(embed = embed)
+        await ctx.respond(embed = embed)
 
-    @commands.command()
+    @discord.slash_command()
     async def sysinfo(self, ctx):
         embed = discord.Embed(title="Host System Information", color=0xf0d000)
      
@@ -164,31 +164,47 @@ class Base(Cog):
             embed.add_field(name = f"CPU frequency - Processor {count}", value = corefreq, inline = True)
             count += 1
      
-        meminfo = subprocess.check_output("cat /proc/meminfo", shell = True).decode().strip()
-        for line in meminfo.split("\n"):
-            if 'MemTotal' in line: 
-                x = line.split()
-                memTotal = x[1]
+
+        # /proc/memfree is Linux-specific
+        if os.name == "posix" and os.path.exists("/proc/memfree"):
+            meminfo = subprocess.check_output("cat /proc/meminfo", shell = True).decode().strip()
+            for line in meminfo.split("\n"):
+                if 'MemTotal' in line: 
+                    x = line.split()
+                    memtotal = x[1]
         
-            if 'MemFree' in line: 
-                x = line.split()
-                memFree = x[1]
+                if 'MemFree' in line: 
+                    x = line.split()
+                    memfree = x[1]
+
+                # Get buffers and cache to calculate memory free to applications
+                if 'Buffers' in line:
+                    x = line.split()
+                    membuffers = x[1]
+
+                if 'Cached' in line:
+                    x = line.split()
+                    memcached = x[1]
+
+                if memcached and membuffers and memfree:
+                    actualmemfree = memfree + memcached + membuffers
      
-        embed.add_field(name = "Host Memory Total", value = kb2hsize(memTotal), inline = True)
-        embed.add_field(name = "Host Memory Free", value = kb2hsize(memFree), inline = True)
+            embed.add_field(name = "Host Memory Total", value = kb2hsize(memtotal), inline = True)
+            embed.add_field(name = "Host Memory Free", value = kb2hsize(memfree), inline = True)
+            embed.add_field(name = "Actual Host Memory Free", value = kb2hsize(actualmemfree), inline = True)
      
-        await ctx.send(embed = embed)
+        await ctx.respond(embed = embed)
 
     #@commands.command()
     #async def botinfo(self, ctx):
     #    self
 
     # Admin only for now since this can send a message in any channel
-    @commands.command()
+    @discord.slash_command()
     @has_permissions(administrator=True)
     async def attach2msg(self, ctx, *, channel: str = None):
         if channel == None:
-            await ctx.send("Missing argument: Channel")
+            await ctx.respond("Missing argument: Channel")
             return
 
         if len(ctx.message.attachments) > 0:
@@ -199,18 +215,20 @@ class Base(Cog):
                 if len(r.text) > 2000:
                     for split in (r.text[0+i:2000+i] for i in range(0, len(r.text), 2000)):
                         await ctx.send(split)
+
+                    await ctx.respond("")
                 else:
-                    await ctx.send(r.text)
+                    await ctx.respond(r.text)
             else:
-                await ctx.send("File appears to not be markdown or text")
+                await ctx.respond("File appears to not be markdown or text")
         elif len(ctx.message.attachments) > 1:
-            await ctx.send("Too many attachements.\nUsage: mdmsg <channel> + .md or .txt file attachement")
+            await ctx.respond("Too many attachements.\nUsage: mdmsg <channel> + .md or .txt file attachement")
 
         else:
-            await ctx.send("No attachments found.\nUsage: mdmsg <channel> + .md ot .txt file attachement")
+            await ctx.respond("No attachments found.\nUsage: mdmsg <channel> + .md ot .txt file attachement")
 
     # Admin only for now since this could be spammed
-    @commands.command()
+    @discord.slash_command()
     @has_permissions(administrator=True)
     async def channellist(self, ctx, *, filt = "everyone"):
         msg = "# Channels\n"
@@ -273,8 +291,10 @@ class Base(Cog):
 
             for part in msg:
                 await ctx.send(part)
+
+            await ctx.respond("")
         else:
-            await ctx.send(msg)
+            await ctx.respond(msg)
 
 
 def setup(client):

@@ -2,8 +2,9 @@
 # File: app.py
 # Purpose: Functions used by the bot, similar to lib.rs 
 # Created: January 25, 2024
-# Modified: January 29, 2024
+# Modified: February 5, 2024
 
+import discord
 import csv
 import logging
 import os
@@ -73,4 +74,9 @@ def msgsplit(maxchars, stringlist):
 
     return splitmsg
     
+# Generic error message embed
+def mkerrembed(msg):
+
+    embed = discord.Embed(title = "Error", color = 0xff0000)
+    embed.add_field(msg)
     

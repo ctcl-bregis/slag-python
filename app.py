@@ -33,7 +33,7 @@ intents.presences = True
 intents.members = True
 intents.message_content = True
 
-client = commands.Bot(command_prefix = "$", intents = intents, help_command = None, activity = discord.Activity(type=discord.ActivityType.watching, name = f"$help from {socket.gethostname()}"))
+client = commands.Bot(command_prefix = "$", intents = intents, help_command = None, activity = discord.Activity(type=discord.ActivityType.watching, name = f"from {socket.gethostname()}"))
 
 try:
     with open("config/config.json") as f:

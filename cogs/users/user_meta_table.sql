@@ -1,4 +1,4 @@
 CREATE TABLE usermeta (
     userid int,
-    userdatabase varchar(255)
+    userdb varchar(255)
 );

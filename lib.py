@@ -2,14 +2,15 @@
 # File: app.py
 # Purpose: Functions used by the bot, similar to lib.rs 
 # Created: January 25, 2024
-# Modified: February 6, 2024
+# Modified: February 7, 2024
 
-import discord
 import csv
 import logging
-import os
 import math
+import os
 from datetime import datetime
+
+import discord
 
 formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
 logging.basicConfig(filemode="a", format="%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s", datefmt="%H:%M:%S", level=logging.DEBUG)
@@ -78,6 +79,6 @@ def msgsplit(maxchars, stringlist):
 def mkerrembed(msg):
 
     embed = discord.Embed(title = "Error", color = 0xff0000)
-    embed.add_field(name = "Message", value = msg)
+    embed.add_field(name = "", value = msg)
     
     return embed

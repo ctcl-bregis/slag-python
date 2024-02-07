@@ -2,18 +2,18 @@
 # File: app.py
 # Purpose: Main application
 # Created: January 24, 2024
-# Modified: February 6, 2024
+# Modified: February 7, 2024
 
 import asyncio
 import csv
 import json
 import logging
 import os
-import sys
-import time
+import re
 import socket
 import subprocess
-import re
+import sys
+import time
 from datetime import datetime
 
 import discord
@@ -21,7 +21,7 @@ from discord.ext import commands
 from discord.ext.commands import Bot
 from discord.ext.commands.errors import MissingRequiredArgument
 
-from lib import logger_resetup, logger_setup
+from lib import logger_resetup, logger_setup, mkerrembed
 
 if not os.path.exists("logs/"):
     os.mkdir("logs/")

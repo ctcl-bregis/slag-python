@@ -2,20 +2,20 @@
 # File: cogs/users/__init__.py
 # Purpose: User profiling and birthday reminder cog
 # Created: January 27, 2024
-# Modified: February 6, 2024
+# Modified: February 7, 2024
 
 import csv
-import os
 import logging
+import os
 import sqlite3
-from datetime import datetime, tzinfo, timedelta, timezone
 import zoneinfo
+from datetime import datetime, timedelta, timezone, tzinfo
 
+import discord
 from discord.errors import NotFound
 from discord.ext import commands
 from discord.ext.commands import Cog
 from discord.ext.commands.errors import MemberNotFound
-import discord
 
 from lib import mkerrembed
 

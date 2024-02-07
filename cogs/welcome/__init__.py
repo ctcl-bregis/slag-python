@@ -2,12 +2,13 @@
 # File: cogs/welcome.py
 # Purpose: Sends a welcome message on user join or a leave message on user leave
 # Created: January 27, 2024
-# Modified: February 5, 2024
+# Modified: February 7, 2024
 
 from datetime import datetime
+
+import discord
 from discord.ext import commands
 from discord.ext.commands import Cog
-import discord
 
 class Welcome(Cog):
     def __init__(self, client):

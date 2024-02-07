@@ -2,13 +2,15 @@
 # File: cogs/log.py
 # Purpose: Message and action logging
 # Created: January 27, 2024
-# Modified: January 31, 2024
+# Modified: February 7, 2024
 
 # NOTE: This cog is unrelated to the discord.py and sys_logger loggers. This cog is for recording user and guild activity.
 
+# This cog may be removed soon and be merged into "users"
+
 import csv
-import os
 import logging
+import os
 from datetime import datetime
 
 from discord.errors import NotFound

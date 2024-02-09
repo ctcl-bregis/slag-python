@@ -16,6 +16,7 @@ from discord.errors import NotFound
 from discord.ext import commands
 from discord.ext.commands import Cog
 from discord.ext.commands.errors import MemberNotFound
+from discord import default_permissions
 
 from lib import mkerrembed, logger_setup
 
@@ -214,8 +215,9 @@ class Users(Cog):
     @Cog.listener()
     async def on_ready(self):
         self.refreshusers()
-        
+    
     @discord.slash_command(name = "gathermessages", description = "Gathers all messages of every guild and logs them")
+    @default_permissions(administrator = True)
     async def gather_messages_command(self, ctx: discord.ApplicationContext):
         await ctx.respond("This may take a very, very, long time. If you become light headed from thirst, feel free to pass out. An intubation associate will be dispatched to revive you with peptic salve and adrenaline.")
         await self.gathermessages()
@@ -241,6 +243,7 @@ class Users(Cog):
 
 
     @discord.slash_command(name = "birthdaysetuser", description = "Set the birthday of another user")
+    @default_permissions(administrator = True)
     async def birthday_set_user(self, ctx: discord.ApplicationContext):
 
         await ctx.respond("")

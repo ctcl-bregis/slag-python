@@ -2,7 +2,6 @@
     "cog_whitelist": [
         "base",
         "users",
-        "log",
         "welcome",
         "micron"
     ]

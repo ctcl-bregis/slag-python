@@ -26,12 +26,28 @@ from lib import logger_resetup, logger_setup, mkerrembed
 if not os.path.exists("logs/"):
     os.mkdir("logs/")
 
+if not os.path.exists("data/"):
+        os.mkdir("data/")
+
 sys_logger = logger_setup("sys_logger", "logs/sys_log.log")
 
 intents = discord.Intents.all()
-intents.presences = True
+intents.auto_moderation_configuration = True
+intents.auto_moderation_execution = True
+intents.bans = True
+intents.emojis_and_stickers = True
+intents.guilds = True
+intents.integrations = True
+intents.invites = True
 intents.members = True
 intents.message_content = True
+intents.messages = True
+intents.presences = True
+intents.reactions = True
+intents.scheduled_events = True
+intents.typing = True
+intents.voice_states = True
+intents.webhooks = True
 
 client = commands.Bot(command_prefix = "$", intents = intents, help_command = None, activity = discord.Activity(type=discord.ActivityType.watching, name = f"from {socket.gethostname()}"))
 
@@ -74,9 +90,6 @@ logger_resetup(logging.getLogger("discord.gateway"), "logs/sys_log.log")
 if os.path.exists("token.txt"):
     with open("token.txt") as f:
         token = f.read()
-
-    if not os.path.exists("data/"):
-        os.mkdir("data/")
 
     cogs = get_cogs()
     sys_logger.info(f"Cogs found in \"cogs/\": {cogs}")

@@ -207,13 +207,14 @@ class Micron(Cog):
             if pn[-2:-1] == ":":
                 embed.add_field(name = "Die Revision", value = pn[-1:], inline = False)
 
-
         if res:
             embed.set_footer(text = f"Cached - {timestamp}")
         else:
             embed.set_footer(text = f"{micron_url}?fbga={code} - {timestamp}")
             
+        dbc.close()
         await ctx.respond(embed = embed)
+        return
 
     @discord.slash_command(name = "flush_fbga", description = "Micron FBGA Lookup - Removes a specific FBGA code from the database")
     async def micron_flush_fbga(self, ctx: discord.ApplicationContext, code: discord.Option(str, "FBGA code - not case sensitive", min_length = 5, max_length = 5, required = True)):
@@ -227,6 +228,7 @@ class Micron(Cog):
             dbc.commit()
             embed = discord.Embed(title = f"{code} removed from database", color = 0x0000FF)
             cog_logger.info(f"FBGA code removed from database: {code}")
+            dbc.close()
             await ctx.respond(embed = embed)
             return
         else:

@@ -2,7 +2,7 @@
 # File: cogs/base.py
 # Purpose: Base command definitions
 # Created: January 26, 2024
-# Modified: February 7, 2024
+# Modified: February 8, 2024
 
 import multiprocessing
 import os
@@ -37,7 +37,7 @@ class Base(Cog):
         self.client = client
 
     @discord.slash_command(name = "help")
-    async def _help(self, ctx):
+    async def _help(self, ctx: discord.ApplicationContext):
         help_text_user = """
     $help - Lists commands
     $sysinfo - Reports information about the host system
@@ -49,7 +49,7 @@ class Base(Cog):
         await ctx.respond(embed = embed)
 
     @discord.slash_command()
-    async def sysinfo(self, ctx):
+    async def sysinfo(self, ctx: discord.ApplicationContext):
         embed = discord.Embed(title="Host System Information", color=0xf0d000)
      
         hostname = socket.gethostname()
@@ -77,9 +77,8 @@ class Base(Cog):
             embed.add_field(name = f"CPU frequency - Processor {count}", value = corefreq, inline = True)
             count += 1
      
-
         # /proc/memfree is Linux-specific
-        if os.name == "posix" and os.path.exists("/proc/memfree"):
+        if os.name == "posix" and os.path.exists("/proc/meminfo"):
             meminfo = subprocess.check_output("cat /proc/meminfo", shell = True).decode().strip()
             for line in meminfo.split("\n"):
                 if 'MemTotal' in line: 
@@ -99,24 +98,23 @@ class Base(Cog):
                     x = line.split()
                     memcached = x[1]
 
-                if memcached and membuffers and memfree:
-                    actualmemfree = memfree + memcached + membuffers
-     
-            embed.add_field(name = "Host Memory Total", value = kb2hsize(memtotal), inline = True)
-            embed.add_field(name = "Host Memory Free", value = kb2hsize(memfree), inline = True)
-            embed.add_field(name = "Actual Host Memory Free", value = kb2hsize(actualmemfree), inline = True)
-     
+            if memcached and membuffers and memfree:
+                actualmemfree = int(memfree) + int(memcached) + int(membuffers)
+                embed.add_field(name = "Host Memory Total", value = kb2hsize(memtotal), inline = True)
+                embed.add_field(name = "Host Memory Free", value = kb2hsize(memfree), inline = True)
+                embed.add_field(name = "Actual Host Memory Free", value = kb2hsize(actualmemfree), inline = True)
+
         await ctx.respond(embed = embed)
 
     #@commands.command()
-    #async def botinfo(self, ctx):
+    #async def botinfo(self, ctx: discord.ApplicationContext):
     #    self
 
     # Admin only for now since this can send a message in any channel
     @discord.slash_command()
     @has_permissions(administrator=True)
-    async def attach2msg(self, ctx, *, channel: str = None):
-        if channel == None:
+    async def attach2msg(self, ctx):
+        if not channel:
             await ctx.respond("Missing argument: Channel")
             return
 
@@ -142,8 +140,11 @@ class Base(Cog):
 
     # Admin only for now since this could be spammed
     @discord.slash_command()
-    @has_permissions(administrator=True)
-    async def channellist(self, ctx, *, filt = "everyone"):
+    @has_permissions(administrator = True)
+    async def channellist(self, ctx, 
+        channel: discord.Option(discord.TextChannel, "Channel to send list - defaults to the current channel", required = False), 
+        role: discord.Option(discord.Role, "Only show channels that this role can see - defaults to @everyone", required = False)):
+
         msg = "# Channels\n"
         channeldict = {}
         nocategory = []
@@ -153,21 +154,22 @@ class Base(Cog):
             channeldict[category.name] = []
             categorynames.append(category.name)
 
-        if filt == "everyone":
+        if role == "@everyone" or role == None:
             for channel in ctx.guild.channels:
-                if channel.category == None:
-                    if channel.permissions_for(ctx.guild.default_role).view_channel:
-                        nocategory.append(channel)
-                else:
+                if channel.category:
                     if channel.category.name in categorynames and channel.permissions_for(ctx.guild.default_role).view_channel:
                         channeldict[channel.category.name].append(channel)    
-        elif filt == "all":
-            for channel in ctx.guild.channels:
-                if channel.category == None:
-                    nocategory.append(channel)
                 else:
-                    if channel.category.name in categorynames:
-                        channeldict[channel.category.name].append(channel)    
+                    if channel.permissions_for(ctx.guild.default_role).view_channel:
+                        nocategory.append(channel)
+        else:
+            for channel in ctx.guild.channels:
+                if channel.category:
+                    if channel.category.name in categorynames and channel.permissions_for(role).view_channel:
+                        channeldict[channel.category.name].append(channel)
+                else:
+                    if channel.permissions_for(role).view_channel:
+                        nocategory.append(channel)
 
         if nocategory != []:
             for channel in nocategory:
@@ -202,10 +204,11 @@ class Base(Cog):
 
             msg = msgsplit(1500, splitmsg)
 
-            for part in msg:
+            await ctx.respond(msg[0])
+
+            for part in msg[1:]:
                 await ctx.send(part)
 
-            await ctx.respond("")
         else:
             await ctx.respond(msg)
 

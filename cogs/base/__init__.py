@@ -2,7 +2,7 @@
 # File: cogs/base.py
 # Purpose: Base command definitions
 # Created: January 26, 2024
-# Modified: February 8, 2024
+# Modified: February 10, 2024
 
 import multiprocessing
 import os
@@ -51,13 +51,31 @@ class Base(Cog):
     @discord.slash_command()
     async def sysinfo(self, ctx: discord.ApplicationContext):
         embed = discord.Embed(title="Host System Information", color=0xf0d000)
-     
+
+        # CTCL hardware-specific fields that checks environment variables, e.g. for CTCL-SVCS-SLAG /etc/environment as of February 10, 2024:
+        # hwcodename="Lisdexamfetamine"
+        # hwshcodename="LDX"
+        # hwtype="virtual"
+
+        try:
+            syscodename = os.environ["hwcodename"]
+        except KeyError:
+            syscodename = None
+
+        try:
+            sysshcodename = os.environ["hwshcodename"]
+        except KeyError:
+            sysshcodename = None
+
         hostname = socket.gethostname()
-        embed.add_field(name = "System Host Name", value = hostname, inline = False)
-     
+        if syscodename and sysshcodename:
+            embed.add_field(name = "System Name", value = f"{hostname} \"{syscodename}\" (\"{sysshcodename}\")", inline = False)
+        else:
+            embed.add_field(name = "System Name", value = f"{hostname}", inline = False)
+
         uname = subprocess.check_output("uname -a", shell = True).decode().strip()
         embed.add_field(name = "uname -a output", value = uname, inline = False)
-     
+
         cpuinfo = subprocess.check_output("cat /proc/cpuinfo", shell = True).decode().strip()
         for line in cpuinfo.split("\n"):
             if "model name" in line:
@@ -138,11 +156,11 @@ class Base(Cog):
         else:
             await ctx.respond("No attachments found.\nUsage: mdmsg <channel> + .md ot .txt file attachement")
 
-    # Admin only for now since this could be spammed
+    # Admin only for now since this could be spammed and can send messages to any channel
     @discord.slash_command()
     @has_permissions(administrator = True)
     async def channellist(self, ctx, 
-        channel: discord.Option(discord.TextChannel, "Channel to send list - defaults to the current channel", required = False), 
+        targetchannel: discord.Option(discord.TextChannel, "Channel to send list - defaults to the current channel", required = False), 
         role: discord.Option(discord.Role, "Only show channels that this role can see - defaults to @everyone", required = False)):
 
         msg = "# Channels\n"
@@ -204,13 +222,13 @@ class Base(Cog):
 
             msg = msgsplit(1500, splitmsg)
 
-            await ctx.respond(msg[0])
-
-            for part in msg[1:]:
-                await ctx.send(part)
+            for part in msg:
+                await targetchannel.send(part)
+                await ctx.respond(f"Sent list to {targetchannel.mention}")
 
         else:
-            await ctx.respond(msg)
+            await targetchannel.send(msg)
+            await ctx.respond(f"Sent list to {targetchannel.mention}")
 
 
 def setup(client):

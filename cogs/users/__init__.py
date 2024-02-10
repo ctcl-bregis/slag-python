@@ -2,7 +2,7 @@
 # File: cogs/users/__init__.py
 # Purpose: User profiling and birthday reminder cog
 # Created: January 27, 2024
-# Modified: February 9, 2024
+# Modified: February 10, 2024
 
 import csv
 import logging
@@ -93,7 +93,7 @@ class Users(Cog):
 
         values = []
         for member in self.members:
-            values.append((member.id, f"data/users/user_{member.id}.db", member.created_at))
+            values.append((member.id, f"data/users/user_{member.id}.db", member.created_at, 0))
     
         cur.execute("SELECT * FROM usermeta")
         metacount = len(cur.fetchall())
@@ -101,7 +101,7 @@ class Users(Cog):
         cog_logger.info(f"{len(self.members)} unique members found while usermeta has {metacount} entries")
 
         # Fields for the one table in "usermeta.db" should be set UNIQUE for this to work properly. See https://www.sqlite.org/lang_conflict.html.
-        cur.executemany("INSERT OR IGNORE INTO usermeta VALUES(?, ?, ?)", values)
+        cur.executemany("INSERT OR IGNORE INTO usermeta VALUES(?, ?, ?, ?)", values)
         dbc.commit()
         dbc.close()
 
@@ -135,7 +135,7 @@ class Users(Cog):
         dbc = sqlite3.connect("data/users/usermeta.db")
         cur = dbc.cursor()
 
-        cur.execute("SELECT userid, userdb FROM usermeta WHERE userid=?", (userid,))
+        cur.execute("SELECT userid, userdb, blacklisted FROM usermeta WHERE userid=?", (userid,))
         usermeta = cur.fetchone()
         dbc.close()
 
@@ -161,12 +161,12 @@ class Users(Cog):
                 dbc.commit()
                 dbc.close()
 
-                values = (userid, userdb, user.created_at)
+                values = (userid, userdb, user.created_at, 0)
 
                 dbc = sqlite3.connect("data/users/usermeta.db")
                 cur = dbc.cursor()
                 # Fields for the one table in "usermeta.db" should be set UNIQUE for this to work properly. See https://www.sqlite.org/lang_conflict.html.
-                cur.execute("INSERT OR IGNORE INTO usermeta VALUES(?, ?, ?)", values)
+                cur.execute("INSERT OR IGNORE INTO usermeta VALUES(?, ?, ?, ?)", values)
                 dbc.commit()
                 dbc.close()
                 return userdb
@@ -315,21 +315,36 @@ class Users(Cog):
 
         # Avoiding the use of flag bits here since it overcomplicates things and Python endianness depends on the CPU
         user_flags = ""
-        user_flags += f"User is a Discord Employee: {user.public_flags.staff}\n"
-        user_flags += f"User is a Discord Partner: {user.public_flags.partner}\n"
-        user_flags += f"User is a HypeSquad Events member: {user.public_flags.hypesquad}\n"
-        user_flags += f"User is a Bug Hunter: {user.public_flags.bug_hunter}\n"
-        user_flags += f"User is a Bug Hunter Level 2: {user.public_flags.bug_hunter_level_2}\n"
-        user_flags += f"User is a HypeSquad Bravery Member: {user.public_flags.hypesquad_bravery}\n"
-        user_flags += f"User is a HypeSquad Brilliance Member: {user.public_flags.hypesquad_brilliance}\n"
-        user_flags += f"User is a HypeSquad Balance Member: {user.public_flags.hypesquad_balance}\n"
-        user_flags += f"User is an Early Supporter (Nitro before Oct 10 2018): {user.public_flags.early_supporter}\n"
-        user_flags += f"User is a Team User: {user.public_flags.team_user}\n"
-        user_flags += f"User is a System User: {user.public_flags.system}\n"
-        user_flags += f"User is a Verified Bot: {user.public_flags.verified_bot}\n"
-        user_flags += f"User is an Early Verified Bot Developer: {user.public_flags.verified_bot_developer}\n"
-        user_flags += f"User is a Discord Certified Moderator: {user.public_flags.discord_certified_moderator}\n"
-        user_flags += f"User is an Active Developer: {user.public_flags.active_developer}\n"
+        if user.public_flags.staff:
+            user_flags += f"User is a Discord Employee\n"
+        if user.public_flags.partner:
+            user_flags += f"User is a Discord Partner\n"
+        if user.public_flags.hypesquad:
+            user_flags += f"User is a HypeSquad Events member\n"
+        if user.public_flags.bug_hunter:
+            user_flags += f"User is a Bug Hunter\n"
+        if user.public_flags.bug_hunter_level_2:
+            user_flags += f"User is a Bug Hunter Level 2\n"
+        if user.public_flags.hypesquad_bravery:
+            user_flags += f"User is a HypeSquad Bravery Member\n"
+        if user.public_flags.hypesquad_brilliance:
+            user_flags += f"User is a HypeSquad Brilliance Member\n"
+        if user.public_flags.hypesquad_balance:
+            user_flags += f"User is a HypeSquad Balance Member\n"
+        if user.public_flags.early_supporter:
+            user_flags += f"User is an Early Supporter (Nitro before Oct 10 2018)\n"
+        if user.public_flags.team_user:
+            user_flags += f"User is a Team User\n"
+        if user.public_flags.system:
+            user_flags += f"User is a System User\n"
+        if user.public_flags.verified_bot:
+            user_flags += f"User is a Verified Bot\n"
+        if user.public_flags.verified_bot_developer:
+            user_flags += f"User is an Early Verified Bot Developer\n"
+        if user.public_flags.discord_certified_moderator:
+            user_flags += f"User is a Discord Certified Moderator\n"
+        if user.public_flags.active_developer:
+            user_flags += f"User is an Active Developer\n"
 
         embed.add_field(name = "User Flags", value = user_flags, inline = False)
         
@@ -383,12 +398,12 @@ class Users(Cog):
         # FIXME: This retrieves the message from the bot cache, making the use of the "raw" version of this event pointless
         message = self.client.get_message(payload.message_id)
         if not message:
-            cog_logger.INFO(f"Message not found: {payload.message_id}")
+            cog_logger.info(f"Message not found: {payload.message_id}")
             return
 
         userdb = self.checkuserindb(message.author.id)
         if not userdb:
-            cog_logger.INFO(f"User not found: {message.author.id}")
+            cog_logger.info(f"User not found: {message.author.id}")
 
         dbc = sqlite3.connect(userdb)
         cur = dbc.cursor()

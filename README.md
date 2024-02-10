@@ -9,6 +9,8 @@ SLAG is an initialism of "Security, Logging, Analytics and General Purpose". The
 
 Unlike many other bots, there are no donations, premium or voting.
 
+If there is a need for it, such as performance, I may start working on a Rust version.
+
 ## Cogs
 SLAG is modularized using the Pycord library's Cog feature
 

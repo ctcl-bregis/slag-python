@@ -230,6 +230,13 @@ class Base(Cog):
             await targetchannel.send(msg)
             await ctx.respond(f"Sent list to {targetchannel.mention}")
 
+    @discord.slash_command(name = "leaveguild")
+    @has_permissions(administrator = True)
+    async def leaveguild(self, ctx: discord.ApplicationContext, guildid: discord.Option(str, "Guild ID", required = True)):
+        guild = await self.client.fetch_guild(guildid)
+        await guild.leave()
+        await ctx.respond(f"Left {guildid}")
+        return
 
 def setup(client):
     client.add_cog(Base(client))

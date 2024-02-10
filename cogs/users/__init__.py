@@ -450,7 +450,8 @@ class Users(Cog):
             for activity in activities:
                 if isinstance(activity, discord.CustomActivity):
                     userstatus = activity.name
-                    userstatusemoji = activity.emoji.name
+                    if activity.emoji:
+                        userstatusemoji = activity.emoji.name
                 elif isinstance(activity, discord.Activity):
                     if activity.type == discord.ActivityType.playing:
                         activitytype = "playing"

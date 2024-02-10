@@ -2,7 +2,7 @@
 # File: cogs/micron/__init__.py
 # Purpose: Micron FBGA decoder and code lookup cog
 # Created: February 6, 2024
-# Modified: February 7, 2024
+# Modified: February 10, 2024
 
 import os
 import re
@@ -238,6 +238,7 @@ class Micron(Cog):
     @discord.slash_command(name = "prod_code", description = "Micron FBGA Lookup - Decode production code (top row on IC)")
     async def micron_prod_code(self, ctx: discord.ApplicationContext, code: discord.Option(str, "Production code - not case sensitive", min_length = 5, max_length = 5, required = True)):
         # See Micron CSN-11 document
+        code = code.upper()
 
         if not re.match("[A-Z0-9]+", code):
             await ctx.respond(embed = mkerrembed(f"Invalid production code"))
@@ -268,7 +269,11 @@ class Micron(Cog):
             await ctx.respond(embed = mkerrembed(f"Invalid production code"))
             return
 
-        dierev = code[2]
+        if re.match("[A-Z]+", code[2]):
+            embed.add_field(name = "Die revision", value = code[2], inline = False)
+        else:
+            await ctx.respond(embed = mkerrembed(f"Invalid production code"))
+            return
 
         try:
             embed.add_field(name = "Diffused", value = location_dict[code[3]], inline = False)

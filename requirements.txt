@@ -1,4 +1,4 @@
 py-cord
 psutil
-requests
-bs4
+aiohttp
+beautifulsoup4

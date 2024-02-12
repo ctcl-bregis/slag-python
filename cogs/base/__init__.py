@@ -2,7 +2,7 @@
 # File: cogs/base.py
 # Purpose: Base command definitions
 # Created: January 26, 2024
-# Modified: February 10, 2024
+# Modified: February 12, 2024
 
 import multiprocessing
 import os
@@ -127,34 +127,6 @@ class Base(Cog):
     #@commands.command()
     #async def botinfo(self, ctx: discord.ApplicationContext):
     #    self
-
-    # Admin only for now since this can send a message in any channel
-    @discord.slash_command()
-    @has_permissions(administrator=True)
-    async def attach2msg(self, ctx):
-        if not channel:
-            await ctx.respond("Missing argument: Channel")
-            return
-
-        if len(ctx.message.attachments) > 0:
-            att_url = ctx.message.attachments[0].url
-            r = requests.get(att_url, stream = True)
-            r.raw.decode_content = True
-            if r.headers["content-type"] in ["text/markdown; charset=utf-8", "text/plain; charset=utf-8"]:
-                if len(r.text) > 2000:
-                    for split in (r.text[0+i:2000+i] for i in range(0, len(r.text), 2000)):
-                        await ctx.send(split)
-
-                    await ctx.respond("")
-                else:
-                    await ctx.respond(r.text)
-            else:
-                await ctx.respond("File appears to not be markdown or text")
-        elif len(ctx.message.attachments) > 1:
-            await ctx.respond("Too many attachements.\nUsage: mdmsg <channel> + .md or .txt file attachement")
-
-        else:
-            await ctx.respond("No attachments found.\nUsage: mdmsg <channel> + .md ot .txt file attachement")
 
     # Admin only for now since this could be spammed and can send messages to any channel
     @discord.slash_command()

@@ -2,11 +2,13 @@
 # File: cogs/micron/__init__.py
 # Purpose: Micron FBGA decoder and code lookup cog
 # Created: February 6, 2024
-# Modified: February 10, 2024
+# Modified: February 12, 2024
 
 import os
 import re
 import sqlite3
+import asyncio
+import aiohttp
 from datetime import datetime
 
 import discord
@@ -17,27 +19,48 @@ from discord.ext import commands
 from discord.ext.commands import Cog
 from discord.ext.commands.errors import CommandOnCooldown
 
-from lib import logger_setup, mkerrembed
+from lib import logger_setup, mkerrembed, hsize
+
+cog_logger = logger_setup("cog_micron", "logs/sys_log.log")
 
 micron_url = "https://www.micron.com/support/tools-and-utilities/fbga"
 
-memtypes_dict = {
-    "40": "DDR4 SDRAM",
-    "41": "DDR3 SDRAM",
-    "42": "Mobile LPDDR2",
-    "44": "RLDRAM 3",
-    "46": "DDR SDRAM/Mobile LPDDR",
-    "47": "DDR2 SDRAM",
-    "48": "SDRAM/Mobile LPSDR",
-    "49": "RLDRAM 2",
-    "51": "GDDR5",
-    "52": "Mobile LPDDR3",
-    "53": "Mobile LPDDR4 (2x16 ch/die)",
-    "58": "GDDR5X",
-    "60": "DDR5 SDRAM",
-    "61": "GDDR6/GDDR6X",
-    "62": "Mobile LPDDR",
-    "63": "Mobile LPDDR6" 
+# Info from numdram.xlsx May 4, 2023
+dram_types_dict = {
+    "40A": {"type": "DDR4 SDRAM", "voltage": "1.2", "vtokenlength": 1, "islpddr": False},
+    "41J": {"type": "DDR3 SDRAM", "voltage": "1.5", "vtokenlength": 1, "islpddr": False},
+    "41K": {"type": "DDR3 SDRAM", "voltage": "1.35", "vtokenlength": 1, "islpddr": False},
+    "41L": {"type": "LPDDR2 Mobile", "voltage": "1.2", "vtokenlength": 1, "islpddr": True},
+    "44K": {"type": "RLDRAM3", "voltage": "1.35", "vtokenlength": 1, "islpddr": False},
+    "46V": {"type": "DDR1 SDRAM", "voltage": "2.5", "vtokenlength": 1, "islpddr": False},
+    "46H": {"type": "DDR1 SDRAM", "voltage": "1.8", "vtokenlength": 2, "islpddr": False},
+    "47H": {"type": "DDR2 SDRAM", "voltage": "1.35", "vtokenlength": 1, "islpddr": False},
+    "48H": {"type": "SDRAM", "voltage": "1.8", "vtokenlength": 1, "islpddr": False},
+    "48H": {"type": "LPSDRAM Mobile", "voltage": "1.8", "vtokenlength": 1, "islpddr": True},
+    "48L": {"type": "SDR SDRAM", "voltage": "3.3", "vtokenlength": 2, "islpddr": False},
+    "49H": {"type": "RLDRAM2", "voltage": "1.8", "vtokenlength": 1, "islpddr": False},
+    "51J": {"type": "GDDR5", "voltage": "1.5", "vtokenlength": 1, "islpddr": False},
+    "51K": {"type": "GDDR5", "voltage": "1.4", "vtokenlength": 1, "islpddr": False},
+    "52H": {"type": "LPDDR3 Mobile", "voltage": "1.8", "vtokenlength": 2, "islpddr": False},
+    "52K": {"type": "DDR3L Mobile", "voltage": "1.35", "vtokenlength": 1, "islpddr": False},
+    "52L": {"type": "LPDDR3 Mobile", "voltage": "1.2", "vtokenlength": 1, "islpddr": True},
+    "53B": {"type": "LPDRR4 Mobile", "voltage": "1.1", "vtokenlength": 1, "islpddr": True},
+    "53D": {"type": "LPDDR4X Mobile", "voltage": "1.1", "vtokenlength": 1, "islpddr": True},
+    "53E": {"type": "LPDDR4 Mobile", "voltage": "1.1", "vtokenlength": 1, "islpddr": True},
+    "53E": {"type": "LPDDR4X Mobile", "voltage": "1.1", "vtokenlength": 1, "islpddr": True},
+    "58K": {"type": "GDDR5", "voltage": "1.35", "vtokenlength": 1, "islpddr": False},
+    "58K": {"type": "GDDR5X", "voltage": "1.35", "vtokenlength": 1, "islpddr": False},
+    "58M": {"type": "GDDR5X", "voltage": "1.25", "vtokenlength": 1, "islpddr": False},
+    "60B": {"type": "DDR5 SDRAM", "voltage": "1.1", "vtokenlength": 1, "islpddr": False},
+    "61A": {"type": "GDDR6", "voltage": "1.2", "vtokenlength": 1, "islpddr": False},
+    "61K": {"type": "GDDR6", "voltage": "1.35", "vtokenlength": 1, "islpddr": False},
+    "61K": {"type": "GDDR6X", "voltage": "1.35", "vtokenlength": 1, "islpddr": False},
+    "61M": {"type": "GDDR6", "voltage": "1.25", "vtokenlength": 1, "islpddr": False},
+    "61M": {"type": "GDDR6X", "voltage": "1.25", "vtokenlength": 1, "islpddr": False},
+    "62F": {"type": "LPDDR5 Mobile", "voltage": "1.05", "vtokenlength": 1, "islpddr": True},
+    "62F": {"type": "LPDDR5X Mobile", "voltage": "1.05", "vtokenlength": 1, "islpddr": True},
+    "68A": {"type": "GDDR7", "voltage": "1.2", "vtokenlength": 1, "islpddr": False},
+    "68B": {"type": "GDDR7", "voltage": "1.1", "vtokenlength": 1, "islpddr": False},
 }
 
 week_dict = {
@@ -84,38 +107,87 @@ location_dict = {
     "F": "Philippines"
 }
 
-def getdensity(pn):
-    den_pn = pn[5:]
-    den_pn = den_pn[:-8]
-    
-    if "K" in den_pn:
-        mult = 1024
-        den_pn = den_pn.split("K")
-    elif "M" in den_pn:
-        mult = 1048576
-        den_pn = den_pn.split("M")
-    elif "G" in den_pn:
-        mult = 1073741824
-        den_pn = den_pn.split("G")
-    else:
-        mult = 0
+depths = {
+    "1K": 1 * 1024,
+    "2K": 2 * 1024,
+    "4K": 4 * 1024,
+    "8K": 8 * 1024,
+    "16K": 16 * 1024,
+    "32K": 32 * 1024,
+    "64K": 64 * 1024,
+    "128K": 128 * 1024,
+    "256K": 256 * 1024,
+    "512K": 512 * 1024,
+    "1M": 1 * 1024 * 1024,
+    "2M": 2 * 1024 * 1024,
+    "4M": 4 * 1024 * 1024,
+    "8M": 8 * 1024 * 1024,
+    "16M": 16 * 1024 * 1024,
+    "32M": 32 * 1024 * 1024,
+    "64M": 64 * 1024 * 1024,
+    "128M": 128 * 1024 * 1024,
+    "256M": 256 * 1024 * 1024,
+    "512M": 512 * 1024 * 1024,
+    "1G": 1 * 1024 * 1024 * 1024,
+    "2G": 2 * 1024 * 1024 * 1024,
+    "4G": 4 * 1024 * 1024 * 1024,
+    "8G": 8 * 1024 * 1024 * 1024,
+    "16G": 16 * 1024 * 1024 * 1024,
+    "24G": 24 * 1024 * 1024 * 1024,
+    "32G": 32 * 1024 * 1024 * 1024,
+    "48G": 48 * 1024 * 1024 * 1024,
+    "64G": 64 * 1024 * 1024 * 1024,
+    "128G": 128 * 1024 * 1024 * 1024,
+    "256G": 256 * 1024 * 1024 * 1024,
+    "512G": 512 * 1024 * 1024 * 1024,
+}
 
-    try:
-        density = int(den_pn[0]) * int(den_pn[1]) * mult
-    except ValueError:
-        return None
-    
-    # "Human size" the density
-    if density >= 1073741824:
-        density = str(int(density / 1073741824)) + " Gbit"
-    elif density >= 1048576:
-        density = str(int(density / 1048576)) + " Mbit"
-    elif density >= 1024:
-        density = str(int(density / 1024)) + " Kbit"
-        
-    return density
+# It is important to have the list in this order because of the use of startswith(). For example: 128M16 could be selected with .startswith("128M1").
+widths = [
+    "16",
+    "9",
+    "8",
+    "4",
+    "2",
+    "1"
+]
 
-cog_logger = logger_setup("cog_micron", "logs/sys_log.log")
+def devinfo(pn):
+    # ===========================
+    # Micron DRAM device decoding 
+    # ===========================
+    # devfamily is to keep track what type of device the part number relates to (DRAM, flash, etc.)
+    devfamily = None
+    for key, value in dram_types_dict.items():
+        if pn.startswith("MT" + key):
+            devtype = value["type"]
+            devfamily = "dram"
+            devvoltage = value["voltage"]
+            # If the Voltage Mark Token is either 1 or 2 letters
+            devtypevtoken = value["vtokenlength"]
+            break
+
+    if devfamily == "dram":
+        if devtypevtoken == 2:
+            pn = pn[6:]
+        else:
+            pn = pn[5:]
+
+        for key, value in depths.items():
+            for width in widths:
+                densitycode = key + width
+                if pn.startswith(densitycode):
+                    pn = pn[len(densitycode):]
+                    density = hsize(value * int(width))
+
+    # This seems to be consistent across product types (DRAM, flash, etc.)
+    if pn[-2:-1] == ":":
+        dierev = pn[-1]
+
+    if not devfamily:
+        return False
+    
+    return {"devtype": devtype, "density": density, "dierev": dierev}
 
 class Micron(Cog):
     def __init__(self, client):
@@ -154,11 +226,13 @@ class Micron(Cog):
             cog_logger.info(f"FBGA code found in cache: {code}")
             pn = res[1]
         else:
-            params = {"fbga": code}
-            response = requests.get(micron_url, params = params)
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{micron_url}?fbga={code}") as response:
+                    status = response.status
+                    text = await response.text()
 
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
+            if status == 200:
+                soup = BeautifulSoup(text, 'html.parser')
                 pnc = soup.find('td')
                 if pnc:
                     pn = pnc.text
@@ -171,11 +245,10 @@ class Micron(Cog):
                     dbc.commit()
                     pn = "None"
             else:
-                await ctx.respond(embed = mkerrembed(f"HTTP error: {response.status_code}"))
+                await ctx.respond(embed = mkerrembed(f"HTTP error: {status}"))
                 return
 
         cog_logger.info(f"Part number: {pn}")
-
         
         if pn == "None":
             embed = discord.Embed(title = f"No part number found for {code}", color = 0x0000FF)
@@ -192,20 +265,16 @@ class Micron(Cog):
 
         if pn.startswith("E"):
             embed.add_field(name = "Part Number - Elpida legacy part", value = pn, inline = False)
+        elif pn.startswith("HYB"):
+            # It is highly unlikely that a code would resolve to an Infineon/Qimonda part but it is here just in case
+            embed.add_field(name = "Part Number - Qimonda legacy part", value = pn, inline = False)
         else:
             embed.add_field(name = "Part Number", value = pn, inline = False)
-
-        memtype_pn = pn[2:4]
-        if memtype_pn in memtypes_dict.keys():
-            memtype = memtypes_dict[memtype_pn]
-            
-            embed.add_field(name = "Type", value = memtype, inline = False)
-
-            if getdensity(pn):
-                embed.add_field(name = "Density", value = getdensity(pn), inline = False)
-
-            if pn[-2:-1] == ":":
-                embed.add_field(name = "Die Revision", value = pn[-1:], inline = False)
+            devinfodict = devinfo(pn)
+            if devinfodict:
+                embed.add_field(name = "Type", value = devinfodict["devtype"], inline = False)
+                embed.add_field(name = "Density", value = devinfodict["density"], inline = False)
+                embed.add_field(name = "Die Revision", value = devinfodict["dierev"], inline = False)
 
         if res:
             embed.set_footer(text = f"Cached - {timestamp}")

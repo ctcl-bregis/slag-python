@@ -2,13 +2,9 @@
 
 ## High Priority
 
-- Convert commands over to slash (interaction)
-- Have logs except for sys_log in a SQLite3 database instead of CSV
-- Add action log, such as user join and leave, moderator actions
+- Add guild action logging such as leaves and joins
+- Implement /gathermessages as a command-line option instead of a Discord command
 
-## Medium Priority
-
-- User presence logging
 
 ## Low Priority
 

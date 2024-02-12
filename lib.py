@@ -35,6 +35,16 @@ def logger_resetup(logger, log_file, level=logging.INFO):
 
     return logger
 
+def hsize(size_bytes):
+    suffix = "bit"
+    
+    for unit in [" ", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
+        if abs(size_bytes) < 1024.0:
+            return f"{size_bytes:3.0f} {unit}{suffix}"
+        size_bytes /= 1024.0
+
+    return f"{num:.1f} Yi{suffix}"
+
 def kb2hsize(size_bytes):
     size_bytes = int(size_bytes)
 

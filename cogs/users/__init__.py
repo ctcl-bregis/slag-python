@@ -359,7 +359,7 @@ class Users(Cog):
             cog_logger.info(f"Message not found: {payload.message_id}")
             return
 
-        userdb = self.checkuserindb(self.client, message.author.id)
+        userdb = checkuserindb(self.client, message.author.id)
         if not userdb:
             cog_logger.info(f"User not found: {message.author.id}")
 
@@ -466,7 +466,7 @@ class Users(Cog):
 
     @Cog.listener()
     async def on_member_join(self, member):
-        self.checkuserindb(self.client, member.id)
+        checkuserindb(self.client, member.id)
         embed = discord.Embed(title="Welcome {member.name}", color=0x00ff00)
         embed.set_thumbnail(url = member.display_avatar)
         

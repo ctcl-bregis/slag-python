@@ -488,7 +488,7 @@ class Users(Cog):
 
         dbc = sqlite3.connect("data/users/guildmeta.db")
         cur = dbc.cursor()
-        cur.execute("SELECT welcomerchannel FROM usermeta WHERE guildid=?", (member.guild.id))
+        cur.execute("SELECT welcomerchannel FROM guildmeta WHERE guildid=?", (member.guild.id))
         res = cur.fetchone()[0]
         dbc.close()
 

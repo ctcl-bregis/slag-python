@@ -346,7 +346,7 @@ class Users(Cog):
         dbc = sqlite3.connect(userdb)
         cur = dbc.cursor()
 
-        cur.execute("INSERT INTO usermessages VALUES(?, ?, ?, ?, ?, ?)", entry)
+        cur.execute("INSERT OR IGNORE INTO usermessages VALUES(?, ?, ?, ?, ?, ?)", entry)
 
         dbc.commit()
         dbc.close()
@@ -525,8 +525,8 @@ async def checkuserindb(client, userid, adduser = True):
             cog_logger.info(f"Creating database for {userid}")
 
             if os.path.exists(userdb):
-                cog_logger.info(f"Database for {userid} exists but not present in usermeta, rem")
-
+                cog_logger.info(f"Database for {userid} exists but not present in usermeta, removing")
+                os.remove(userdb)
 
             with open("cogs/users/userdb.sql") as f:
                 userdbschema = f.read()

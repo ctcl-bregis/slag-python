@@ -23,6 +23,9 @@ from lib import logger_setup, mkerrembed
 
 sys_logger = logging.getLogger("sys_logger")
 
+if not os.path.exists("logs/"):
+    os.mkdir("logs/")
+
 if not os.path.exists("logs/users/"):
     os.mkdir("logs/users/")
 

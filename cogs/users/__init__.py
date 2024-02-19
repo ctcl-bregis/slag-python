@@ -317,7 +317,7 @@ class Users(Cog):
     @Cog.listener()
     async def on_guild_join(self, guild):
         cog_logger.info("Bot joined guild, refreshing users")
-        self.refreshusers()
+        refreshusers()
 
     @Cog.listener()
     async def on_message(self, msg):

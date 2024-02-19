@@ -15,7 +15,6 @@ import time
 
 import discord
 import psutil
-import requests
 from discord.errors import NotFound
 from discord.ext import commands
 from discord.ext.commands import Cog, has_permissions

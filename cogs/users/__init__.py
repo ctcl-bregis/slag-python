@@ -1,24 +1,25 @@
 # SLAG - CTCL 2024
 # File: cogs/users/__init__.py
-# Purpose: User profiling and birthday reminder cog
+# Purpose: User profiling and birthday reminder extension
 # Created: January 27, 2024
-# Modified: February 10, 2024
+# Modified: February 18, 2024
 
 import csv
 import logging
 import os
 import sqlite3
+import sys
 import zoneinfo
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import datetime, time, timedelta, timezone, tzinfo
 
 import discord
-from discord.errors import NotFound
-from discord.ext import commands
+from discord import default_permissions
+from discord.errors import Forbidden, NotFound
+from discord.ext import commands, tasks
 from discord.ext.commands import Cog
 from discord.ext.commands.errors import MemberNotFound
-from discord import default_permissions
 
-from lib import mkerrembed, logger_setup
+from lib import logger_setup, mkerrembed
 
 sys_logger = logging.getLogger("sys_logger")
 
@@ -28,18 +29,18 @@ if not os.path.exists("logs/users/"):
 cog_logger = logger_setup("users_logger", "logs/users.log", level=logging.DEBUG)
 
 monthdict = {
-    "January": {"num": "1", "days": 31},
-    "February": {"num": "2", "days": 29},
-    "March": {"num": "3", "days": 31},
-    "April": {"num": "4", "days": 30},
-    "May": {"num": "5", "days": 31},
-    "June": {"num": "6", "days": 30},
-    "July": {"num": "7", "days": 31},
-    "August": {"num": "8", "days": 31},
-    "September": {"num": "9", "days": 30},
-    "October": {"num": "10", "days": 31},
-    "November": {"num": "11", "days": 30},
-    "December": {"num": "12", "days": 31}
+    "january": {"num": 1, "days": 31},
+    "february": {"num": 2, "days": 29},
+    "march": {"num": 3, "days": 31},
+    "april": {"num": 4, "days": 30},
+    "may": {"num": 5, "days": 31},
+    "june": {"num": 6, "days": 30},
+    "july": {"num": 7, "days": 31},
+    "august": {"num": 8, "days": 31},
+    "september": {"num": 9, "days": 30},
+    "october": {"num": 10, "days": 31},
+    "november": {"num": 11, "days": 30},
+    "december": {"num": 12, "days": 31}
 }
 
 onlinestatus = {
@@ -48,8 +49,6 @@ onlinestatus = {
     "idle": 2,
     "dnd": 3
 }
-
-tzs = zoneinfo.available_timezones()
 
 # Check if the file exists and is a valid SQLite3 database
 def dbvalid(db):
@@ -67,168 +66,15 @@ def dbvalid(db):
 class Users(Cog):
     def __init__(self, client):
         self.client = client
-        self.members = []
-
-        if not os.path.exists("data/users/"):
-            os.mkdir("data/users/")
-
-    def refreshusers(self):
-        # Store user IDs so the code does not compare the entire member object
-        memberids = []
-        self.members = []
-
-        for guild in self.client.guilds:
-            for member in guild.members:
-                if member.id not in memberids and member.bot == False:
-                    self.members.append(member)
-
-        if not os.path.exists(f"data/users/usermeta.db"):
-            dbc = sqlite3.connect(f"data/users/usermeta.db")
-            cur = dbc.cursor()
-            with open("cogs/users/usermeta.sql") as f:
-                cur.executescript(f.read())
-        else:
-            dbc = sqlite3.connect(f"data/users/usermeta.db")
-            cur = dbc.cursor()
-
-        values = []
-        for member in self.members:
-            values.append((member.id, f"data/users/user_{member.id}.db", member.created_at, 0))
-    
-        cur.execute("SELECT * FROM usermeta")
-        metacount = len(cur.fetchall())
-
-        cog_logger.info(f"{len(self.members)} unique members found while usermeta has {metacount} entries")
-
-        # Fields for the one table in "usermeta.db" should be set UNIQUE for this to work properly. See https://www.sqlite.org/lang_conflict.html.
-        cur.executemany("INSERT OR IGNORE INTO usermeta VALUES(?, ?, ?, ?)", values)
-        dbc.commit()
-        dbc.close()
-
-        with open("cogs/users/userdb.sql") as f:
-            userdbschema = f.read()
-
-        for usermeta in values:
-            if os.path.exists(usermeta[1]) and not dbvalid(usermeta[1]):
-                cog_logger.info(f"Database for {usermeta[0]} invalid, removing")
-                os.remove(usermeta[1])
-                
-            if not os.path.exists(usermeta[1]):
-                cog_logger.info(f"Database for {usermeta[0]} missing or was invalid, creating one now")
-                dbc = sqlite3.connect(usermeta[1])
-                cur = dbc.cursor()
-                cur.executescript(userdbschema)
-                dbc.commit()
-                dbc.close()
-
-    async def checkuserindb(self, userid, adduser = True):
-        try:
-            user = await self.client.fetch_user(userid)
-        except discord.NotFound:
-            cog_logger.warn(f"User not found")
-            return False
-
-        if user.bot:
-            cog_logger.warn(f"User {userid} is a bot")
-            return False
-
-        dbc = sqlite3.connect("data/users/usermeta.db")
-        cur = dbc.cursor()
-
-        cur.execute("SELECT userid, userdb, blacklisted FROM usermeta WHERE userid=?", (userid,))
-        usermeta = cur.fetchone()
-        dbc.close()
-
-        userdb = f"data/users/user_{userid}.db"
-
-        if usermeta:
-            # Return database file path
-            return userdb
-        else:
-            if adduser:
-                cog_logger.info(f"Creating database for {userid}")
-
-                if os.path.exists(userdb):
-                    cog_logger.info(f"Database for {userid} exists but not present in usermeta, removing")
-                    os.remove(userdb)
-
-                with open("cogs/users/userdb.sql") as f:
-                    userdbschema = f.read()
-
-                dbc = sqlite3.connect(userdb)
-                cur = dbc.cursor()
-                cur.executescript(userdbschema)
-                dbc.commit()
-                dbc.close()
-
-                values = (userid, userdb, user.created_at, 0)
-
-                dbc = sqlite3.connect("data/users/usermeta.db")
-                cur = dbc.cursor()
-                # Fields for the one table in "usermeta.db" should be set UNIQUE for this to work properly. See https://www.sqlite.org/lang_conflict.html.
-                cur.execute("INSERT OR IGNORE INTO usermeta VALUES(?, ?, ?, ?)", values)
-                dbc.commit()
-                dbc.close()
-                return userdb
-            else:
-                cog_logger.warn(f"User {userid} not found in database")
-                dbc.close()
-                return False
-
-    async def gathermessages(self):
-        users = {}
-        for channel in self.client.get_all_channels():
-            if isinstance(channel, discord.TextChannel):
-                messages = await channel.history(limit = None).flatten()
-                for message in messages:
-                    if not message.author.id in users.keys():
-                        users[message.author.id] = []
-
-                    users[message.author.id].append(message)
-
-        cog_logger.info("Messages collected from Discord. Now adding messages to databases.")
-
-        messagecount = 0
-        for user, messages in users.items():
-            messagecount += 1
-            userdb = await self.checkuserindb(user)
-            if not userdb:
-                continue
-            dbc = sqlite3.connect(userdb)
-            cur = dbc.cursor()
-
-            for message in messages:
-                timestamp = datetime.timestamp(message.created_at)
-                msgid = message.id
-                channelid = message.channel.id
-                guildid = message.guild.id
-                isdeleted = 0
-                msgcontent = message.content
-
-                values = (timestamp, msgid, channelid, guildid, isdeleted, msgcontent)
-
-                cur.execute("INSERT OR IGNORE INTO usermessages VALUES(?, ?, ?, ?, ?, ?)", values)
-
-            dbc.commit()
-            dbc.close()
 
     @Cog.listener()
     async def on_ready(self):
-        self.refreshusers()
+        await refreshusers(self.client)
     
-    @discord.slash_command(name = "gathermessages", description = "Gathers all messages of every guild and logs them")
-    @default_permissions(administrator = True)
-    async def gather_messages_command(self, ctx: discord.ApplicationContext):
-        await ctx.respond("This may take a very, very, long time. If you become light headed from thirst, feel free to pass out. An intubation associate will be dispatched to revive you with peptic salve and adrenaline.")
-        await self.gathermessages()
-        await ctx.respond("Gathering done")
-        return
-
-    @discord.slash_command(name = "birthdayset", description = "Set your birthday")
-    async def birthday_set(self, ctx: discord.ApplicationContext, 
-        tz: discord.Option(str, "User Timezone", autocomplete = discord.utils.basic_autocomplete(tzs), required = True),
+    @discord.slash_command(name = "birthday", description = "Set your birthday")
+    async def birthday_set(self, ctx: discord.ApplicationContext,
+        month: discord.Option(str, "Month of Birth", autocomplete = discord.utils.basic_autocomplete(monthdict.keys()), max_length = 9, required = True),
         day: discord.Option(int, "Day of Birth", min_value = 1, max_value = 31, required = True),
-        month: discord.Option(str,"Month of Birth", autocomplete = discord.utils.basic_autocomplete(monthdict.keys()), max_length = 9, required = True),
         year: discord.Option(int, "Year of Birth", min_value = 1900, max_value = (datetime.now().year - 13), required = False)):
 
         if day > monthdict[month]["days"]:
@@ -236,17 +82,130 @@ class Users(Cog):
             return
 
         if not month.lower() in monthdict.keys():
-            ctx.respond(embed = mkerrembed(f"Invalid month: {day}"))
+            await ctx.respond(embed = mkerrembed(f"Invalid month: {month.lower()}"))
             return
 
-        await ctx.respond("")
+        month = monthdict[month.lower()]["num"]
+
+        userid = ctx.author.id
+
+        dbc = sqlite3.connect("data/users/usermeta.db")
+        cur = dbc.cursor()
+
+        if not year:
+            year = 0
+
+        values = (year, month, day, userid)
+
+        cur.execute("UPDATE usermeta SET birthyear=?, birthmonth=?, birthday=? WHERE userid=?", values)
+        dbc.commit()
+        dbc.close()
+
+        await ctx.respond("Birthday Set")
+
+    @tasks.loop(time = time(0, 0, tzinfo=timezone.utc))
+    async def birthday_reminder(self):
+        dbc = sqlite3.connect("data/users/guildmeta.db")
+        cur = dbc.cursor()
+
+        cur.execute("SELECT birthdaychannel FROM guildmeta WHERE guildid=?", (ctx.guild.id,))
+
+        channels = [i[0] for i in cur.fetchall()]
+
+        dbc.close()
 
 
-    @discord.slash_command(name = "birthdaysetuser", description = "Set the birthday of another user")
+        if channel == 0:
+            cog_logger.error(f"Birthday channel not set for guild: {ctx.guild.id}")
+            await ctx.respond("Birthday channel not set")
+            return
+
+        dbc = sqlite3.connect("data/users/usermeta.db")
+        cur = dbc.cursor()
+
+        res = list(cur.execute("SELECT userid, birthyear, birthmonth, birthday FROM usermeta"))
+        dbc.close()
+
+        now = datetime.now()
+        daynow = now.day
+        monthnow = now.month
+        yearnow = now.year
+
+        msgcount = 0
+        for user in res:
+            # For anyone with a leap day birthday, just have the reminder on the 28th of February
+            if user[3] == 29 and user[2] == 2:
+                user[3] = 28
+
+            if user[3] == daynow and user[2] == monthnow:
+                embed = discord.Embed(title = "Happy Birthday", color = 0x00ffff)
+                embed.add_field(name = "", value = f"It is the birthday of <@{user[0]}>")
+                for channel in channels:
+                    if self.client.get_user(user[0]) in [member.id for member in self.client.get_channel(channel).guild.members]:
+                        await self.client.get_channel(channel).send(embed = embed)
+
+
+    @discord.slash_command(name = "birthdayreminder", description = "Check for user birthdays")
     @default_permissions(administrator = True)
-    async def birthday_set_user(self, ctx: discord.ApplicationContext):
+    async def birthday_forcereminder(self, ctx: discord.ApplicationContext):
+        dbc = sqlite3.connect("data/users/guildmeta.db")
+        cur = dbc.cursor()
 
-        await ctx.respond("")
+        cur.execute("SELECT birthdaychannel FROM guildmeta")
+
+        channels = [i[0] for i in cur.fetchall()]
+
+        dbc.close()
+
+        tmp = []
+        for channel in channels:
+            if channel == 0:
+                cog_logger.warn(f"Birthday channel not set for guild: {ctx.guild.id}")
+            else:
+                tmp.append(channel)
+        channels = tmp
+
+        dbc = sqlite3.connect("data/users/usermeta.db")
+        cur = dbc.cursor()
+
+        res = list(cur.execute("SELECT userid, birthyear, birthmonth, birthday FROM usermeta"))
+        dbc.close()
+
+        now = datetime.now()
+        daynow = now.day
+        monthnow = now.month
+        yearnow = now.year
+
+        msgcount = 0
+        for user in res:
+            # For anyone with a leap day birthday, just have the reminder on the 28th of February
+            if user[3] == 29 and user[2] == 2:
+                user[3] = 28
+
+            if user[3] == daynow and user[2] == monthnow:
+                embed = discord.Embed(title = "Happy Birthday", color = 0x00ffff)
+                embed.add_field(name = "", value = f"It is the birthday of <@{user[0]}>")
+                for channel in channels:
+                    if user[0] in [member.id for member in self.client.get_channel(channel).members]:
+                        await self.client.get_channel(channel).send(embed = embed)
+                
+    @discord.slash_command(name = "birthdayconfig", description = "Configure the birthday reminder feature")
+    @default_permissions(administrator = True)
+    async def birthday_config(self, ctx: discord.ApplicationContext, channel: discord.Option(discord.TextChannel, "Channel to send messages in", required = True)):
+        if not ctx.guild:
+            ctx.respond("This command must be used in a guild")
+            return
+        
+        dbc = sqlite3.connect("data/users/guildmeta.db")
+        cur = dbc.cursor()
+
+        cur.execute("UPDATE guildmeta SET birthdaychannel=? WHERE guildid=?", (channel.id, ctx.guild.id))
+
+        dbc.commit()
+        dbc.close()
+
+        await ctx.respond(f"Birthday message channel set to {channel.mention}")
+
 
     @discord.slash_command(name = "userinfo", description = "Displays information about a user")
     async def userinfo(self, ctx: discord.ApplicationContext, user: discord.Option(discord.User, "User", required = False)):
@@ -265,7 +224,7 @@ class Users(Cog):
                     user = await self.client.fetch_user(user.id)
                     fetched_user = user
                 except MemberNotFound:
-                    await ctx.respond(f"User {user} not found")
+                    await ctx.respond(f"User {user.id} not found")
                     return
             except (AttributeError):
                 # AttributeError may be raised if ctx.guild is None, such as in DMs
@@ -353,12 +312,8 @@ class Users(Cog):
         await ctx.respond(embed = embed)
     
     @Cog.listener()
-    async def on_member_join(self, member):
-        # FIXME: calling this on a member join instead of manually adding the user is likely extremely inefficient
-        self.refreshusers()
-
-    @Cog.listener()
     async def on_guild_join(self, guild):
+        cog_logger.info("Bot joined guild, refreshing users")
         self.refreshusers()
 
     @Cog.listener()
@@ -368,7 +323,7 @@ class Users(Cog):
             return
 
         author = msg.author.id
-        userdb = await self.checkuserindb(author)
+        userdb = await checkuserindb(self.client, author)
 
         if not userdb:
             return
@@ -401,7 +356,7 @@ class Users(Cog):
             cog_logger.info(f"Message not found: {payload.message_id}")
             return
 
-        userdb = self.checkuserindb(message.author.id)
+        userdb = self.checkuserindb(self.client, message.author.id)
         if not userdb:
             cog_logger.info(f"User not found: {message.author.id}")
 
@@ -421,7 +376,7 @@ class Users(Cog):
         if after.bot:
             return
 
-        userdb = await self.checkuserindb(userid)
+        userdb = await checkuserindb(self.client, userid)
 
         if not userdb:
             return
@@ -488,8 +443,199 @@ class Users(Cog):
         dbc.commit()
         dbc.close()
 
-def setup(client):
     
+    @discord.slash_command(name = "welcomeconfig", description = "Configure the welcomer feature")
+    @default_permissions(administrator = True)
+    async def birthday_config(self, ctx: discord.ApplicationContext, channel: discord.Option(discord.TextChannel, "Channel to send messages in", required = True)):
+        if not ctx.guild:
+            ctx.respond("This command must be used in a guild")
+            return
+        
+        dbc = sqlite3.connect("data/users/guildmeta.db")
+        cur = dbc.cursor()
+
+        cur.execute("UPDATE guildmeta SET welcomerchannel=? WHERE guildid=?", (channel.id, ctx.guild.id))
+
+        dbc.commit()
+        dbc.close()
+
+        await ctx.respond(f"Welcome message channel set to {channel.mention}")
+
+    @Cog.listener()
+    async def on_member_join(self, member):
+        self.checkuserindb(self.client, member.id)
+        embed = discord.Embed(title="Welcome {member.name}", color=0x00ff00)
+        embed.set_thumbnail(url = member.display_avatar)
+        
+        dbc = sqlite3.connect("data/users/guildmeta.db")
+        cur = dbc.cursor()
+        cur.execute("SELECT welcomerchannel FROM usermeta WHERE guildid=?", (member.guild.id))
+        res = cur.fetchone()[0]
+        dbc.close()
+
+        if res and res != 0:
+            await self.client.get_channel(res).send(embed = embed)
+        else:
+            cog_logger.warn("Welcome message channel not set or guild not found")
+
+    @Cog.listener()
+    async def on_member_remove(self, member):
+        embed = discord.Embed(title="Member Left: {member.name}", color=0xff0000)
+        embed.set_thumbnail(url = member.display_avatar)  
+
+        dbc = sqlite3.connect("data/users/guildmeta.db")
+        cur = dbc.cursor()
+        cur.execute("SELECT welcomerchannel FROM usermeta WHERE guildid=?", (member.guild.id))
+        res = cur.fetchone()[0]
+        dbc.close()
+
+        if res and res != 0:
+            await self.client.get_channel(res).send(embed = embed)
+        else:
+            cog_logger.warn("Welcome message channel not set or guild not found")
+
+async def checkuserindb(client, userid, adduser = True):
+    try:
+        user = await client.fetch_user(userid)
+    except discord.NotFound:
+        cog_logger.warn(f"User not found")
+        return False
+
+    if user.bot:
+        cog_logger.warn(f"User {userid} is a bot")
+        return False
+
+    dbc = sqlite3.connect("data/users/usermeta.db")
+    cur = dbc.cursor()
+
+    cur.execute("SELECT userid, userdb, blacklisted FROM usermeta WHERE userid=?", (userid,))
+    usermeta = cur.fetchone()
+    dbc.close()
+
+    userdb = f"data/users/user_{userid}.db"
+
+    if usermeta:
+        # Return database file path
+        return userdb
+    else:
+        if adduser:
+            cog_logger.info(f"Creating database for {userid}")
+
+            if os.path.exists(userdb):
+                cog_logger.info(f"Database for {userid} exists but not present in usermeta, rem")
 
 
+            with open("cogs/users/userdb.sql") as f:
+                userdbschema = f.read()
+
+            dbc = sqlite3.connect(userdb)
+            cur = dbc.cursor()
+            cur.executescript(userdbschema)
+            dbc.commit()
+            dbc.close()
+
+            values = (userid, userdb, user.created_at, 0, 0, 0, 0)
+
+            dbc = sqlite3.connect("data/users/usermeta.db")
+            cur = dbc.cursor()
+            # Fields for the one table in "usermeta.db" should be set UNIQUE for this to work properly. See https://www.sqlite.org/lang_conflict.html.
+            cur.execute("INSERT OR IGNORE INTO usermeta VALUES(?, ?, ?, ?, ?, ?, ?)", values)
+            dbc.commit()
+            dbc.close()
+            return userdb
+        else:
+            cog_logger.warn(f"User {userid} not found in database")
+            dbc.close()
+            return False
+
+async def gathermessages(client):
+    users = {}
+    for channel in client.get_all_channels():
+        if isinstance(channel, discord.TextChannel):
+            try:
+                messages = await channel.history(limit = None).flatten()
+            except Forbidden:
+                sys_logger.warn(f"HTTP 403 encountered when processing channel: {channel.id}")
+            else:
+                for message in messages:
+                    if not message.author.id in users.keys():
+                        users[message.author.id] = []
+
+                    users[message.author.id].append(message)
+
+    cog_logger.info("Messages collected from Discord. Now adding messages to databases.")
+
+    messagecount = 0
+    for user, messages in users.items():
+        messagecount += 1
+        userdb = await checkuserindb(client, user)
+        if not userdb:
+            continue
+        dbc = sqlite3.connect(userdb)
+        cur = dbc.cursor()
+
+        for message in messages:
+            timestamp = datetime.timestamp(message.created_at)
+            msgid = message.id
+            channelid = message.channel.id
+            guildid = message.guild.id
+            isdeleted = 0
+            msgcontent = message.content
+
+            values = (timestamp, msgid, channelid, guildid, isdeleted, msgcontent)
+
+            cur.execute("INSERT OR IGNORE INTO usermessages VALUES(?, ?, ?, ?, ?, ?)", values)
+
+        dbc.commit()
+        dbc.close()
+
+    cog_logger.info("Message gathering done")
+
+# Refresh the users while not collecting message history
+async def refreshusers(client):
+    memberids = []
+
+    for guild in client.guilds:
+        for member in guild.members:
+            if member.id not in memberids and member.bot == False:
+                memberids.append(member.id)
+
+    for memberid in memberids:
+        await checkuserindb(client, memberid)
+
+def setup(client):
+    if not os.path.exists("data/users/"):
+        os.mkdir("data/users/")
+
+    if not os.path.exists(f"data/users/guildmeta.db"):
+        dbc = sqlite3.connect(f"data/users/guildmeta.db")
+        cur = dbc.cursor()
+        with open("cogs/users/guildmeta.sql") as f:
+            cur.executescript(f.read())
+        dbc.commit()
+    else:
+        dbc = sqlite3.connect(f"data/users/guildmeta.db")
+        cur = dbc.cursor()
+    
+    for guild in client.guilds:
+        cur.execute("SELECT guildid FROM guildmeta WHERE guildid=?", (guild.id,))
+        res = cur.fetchone()
+
+        if not res:
+            cog_logger.info(f"Database does not exist for guild: {guild.id}")
+            values = (guild.id, 0, 0)
+            cur.execute("INSERT OR IGNORE INTO guildmeta VALUES(?, ?, ?)", values)
+
+    dbc.commit()
+    dbc.close()
+
+    if not os.path.exists(f"data/users/usermeta.db"):
+        dbc = sqlite3.connect(f"data/users/usermeta.db")
+        cur = dbc.cursor()
+        with open("cogs/users/usermeta.sql") as f:
+            cur.executescript(f.read())
+        dbc.commit()
+        dbc.close()
+    
     client.add_cog(Users(client))
+    

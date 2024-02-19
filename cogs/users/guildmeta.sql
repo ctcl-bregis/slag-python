@@ -1,8 +1,6 @@
-CREATE TABLE guilds {
-    guildid int,
-    guildname varchar(64),
-    guilddb varchar(64),
-    creationtime int,
+CREATE TABLE guildmeta (
+    guildid INT,
+    welcomerchannel INT,
+    birthdaychannel INT,
     UNIQUE(guildid)
-}
-
+);

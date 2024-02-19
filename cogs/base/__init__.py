@@ -2,7 +2,7 @@
 # File: cogs/base.py
 # Purpose: Base command definitions
 # Created: January 26, 2024
-# Modified: February 12, 2024
+# Modified: February 18, 2024
 
 import multiprocessing
 import os
@@ -67,11 +67,19 @@ class Base(Cog):
         except KeyError:
             sysshcodename = None
 
+        try:
+            systype = os.environ["hwtype"]
+        except KeyError:
+            systype = None
+
         hostname = socket.gethostname()
         if syscodename and sysshcodename:
-            embed.add_field(name = "System Name", value = f"{hostname} \"{syscodename}\" (\"{sysshcodename}\")", inline = False)
+            if os.environ["hwtype"] == "virtual":
+                embed.add_field(name = "System", value = f"{hostname} hosted on \"{syscodename}\" (\"{sysshcodename}\")", inline = False)
+            else:
+                embed.add_field(name = "System", value = f"{hostname} \"{syscodename}\" (\"{sysshcodename}\")", inline = False)
         else:
-            embed.add_field(name = "System Name", value = f"{hostname}", inline = False)
+            embed.add_field(name = "System", value = f"{hostname}", inline = False)
 
         uname = subprocess.check_output("uname -a", shell = True).decode().strip()
         embed.add_field(name = "uname -a output", value = uname, inline = False)

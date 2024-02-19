@@ -2,7 +2,7 @@
 # File: app.py
 # Purpose: Main application
 # Created: January 24, 2024
-# Modified: February 7, 2024
+# Modified: February 18, 2024
 
 import asyncio
 import csv
@@ -22,6 +22,7 @@ from discord.ext.commands import Bot
 from discord.ext.commands.errors import MissingRequiredArgument
 
 from lib import logger_resetup, logger_setup, mkerrembed
+from cogs.users import gathermessages
 
 if not os.path.exists("logs/"):
     os.mkdir("logs/")
@@ -49,7 +50,8 @@ intents.typing = True
 intents.voice_states = True
 intents.webhooks = True
 
-client = commands.Bot(command_prefix = "$", intents = intents, help_command = None, activity = discord.Activity(type=discord.ActivityType.watching, name = f"from {socket.gethostname()}"))
+# Disable auto_sync_commands as sync_commands is called after the loading of the cogs
+client = commands.Bot(command_prefix = "$", auto_sync_commands = False, intents = intents, help_command = None, activity = discord.Activity(type=discord.ActivityType.watching, name = f"from {socket.gethostname()}"))
 
 try:
     with open("config/config.json") as f:
@@ -77,6 +79,20 @@ async def on_ready():
     for guild in client.guilds:
         sys_logger.info(f"{guild.name} - {guild.id}")
 
+    # This has to be called after the bot is ready
+    if "cogs.users" in get_cogs():
+        if len(sys.argv) == 2:
+            if sys.argv[1] == "gathermessages":
+                await gathermessages(client)
+
+    cogs = get_cogs()
+    sys_logger.info(f"Cogs found in \"cogs/\": {cogs}")
+    for cog in cogs:
+        if client.load_extension(cog):
+            sys_logger.info(f"Cog {cog} registered")
+
+    await client.sync_commands()
+
 @client.event
 async def on_guild_join(guild):
     sys_logger.info(f"SLAG joined guild named {guild.name} with ID {guild.id}")
@@ -87,15 +103,13 @@ logger_resetup(logging.getLogger("discord.http"), "logs/sys_log.log")
 logger_resetup(logging.getLogger("discord.client"), "logs/sys_log.log")
 logger_resetup(logging.getLogger("discord.gateway"), "logs/sys_log.log")
 
+if len(sys.argv) > 2:
+    sys_logger.error("Too many arguments passed")
+    sys.exit(1)
+
 if os.path.exists("token.txt"):
     with open("token.txt") as f:
         token = f.read()
-
-    cogs = get_cogs()
-    sys_logger.info(f"Cogs found in \"cogs/\": {cogs}")
-    for cog in cogs:
-        if client.load_extension(cog):
-            sys_logger.info(f"Cog {cog} registered")
-        
+            
     client.run(token)
 

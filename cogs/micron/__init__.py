@@ -2,24 +2,23 @@
 # File: cogs/micron/__init__.py
 # Purpose: Micron FBGA decoder and code lookup cog
 # Created: February 6, 2024
-# Modified: February 12, 2024
+# Modified: February 17, 2024
 
+import asyncio
 import os
 import re
 import sqlite3
-import asyncio
-import aiohttp
 from datetime import datetime
 
+import aiohttp
 import discord
-import requests
 from bs4 import BeautifulSoup
 from discord.errors import NotFound
 from discord.ext import commands
 from discord.ext.commands import Cog
 from discord.ext.commands.errors import CommandOnCooldown
 
-from lib import logger_setup, mkerrembed, hsize
+from lib import hsize, logger_setup, mkerrembed
 
 cog_logger = logger_setup("cog_micron", "logs/sys_log.log")
 
@@ -153,6 +152,8 @@ widths = [
 ]
 
 def devinfo(pn):
+    # TODO: Flash part decoding, Elpida (legacy) part decoding
+
     # ===========================
     # Micron DRAM device decoding 
     # ===========================

@@ -1,4 +1,4 @@
 CREATE TABLE knowncodes (
-    fbga varchar(8),
+    fbga varchar(5),
     partnumber varchar(64)
 );

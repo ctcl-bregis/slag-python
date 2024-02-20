@@ -2,7 +2,7 @@
 # File: cogs/micron/__init__.py
 # Purpose: Micron FBGA decoder and code lookup cog
 # Created: February 6, 2024
-# Modified: February 17, 2024
+# Modified: February 19, 2024
 
 import asyncio
 import os
@@ -143,6 +143,7 @@ depths = {
 
 # It is important to have the list in this order because of the use of startswith(). For example: 128M16 could be selected with .startswith("128M1").
 widths = [
+    "32",
     "16",
     "9",
     "8",
@@ -152,6 +153,9 @@ widths = [
 ]
 
 def devinfo(pn):
+    devtype = None
+    density = None
+    dierev = None
     # TODO: Flash part decoding, Elpida (legacy) part decoding
 
     # ===========================
@@ -187,6 +191,8 @@ def devinfo(pn):
 
     if not devfamily:
         return False
+
+
     
     return {"devtype": devtype, "density": density, "dierev": dierev}
 
@@ -273,9 +279,12 @@ class Micron(Cog):
             embed.add_field(name = "Part Number", value = pn, inline = False)
             devinfodict = devinfo(pn)
             if devinfodict:
-                embed.add_field(name = "Type", value = devinfodict["devtype"], inline = False)
-                embed.add_field(name = "Density", value = devinfodict["density"], inline = False)
-                embed.add_field(name = "Die Revision", value = devinfodict["dierev"], inline = False)
+                if devinfodict["devtype"]:
+                    embed.add_field(name = "Type", value = devinfodict["devtype"], inline = False)
+                if devinfodict["density"]:
+                    embed.add_field(name = "Density", value = devinfodict["density"], inline = False)
+                if devinfodict["dierev"]:
+                    embed.add_field(name = "Die Revision", value = devinfodict["dierev"], inline = False)
 
         if res:
             embed.set_footer(text = f"Cached - {timestamp}")

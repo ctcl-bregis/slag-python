@@ -2,7 +2,7 @@
 # File: cogs/micron/__init__.py
 # Purpose: Micron FBGA decoder and code lookup cog
 # Created: February 6, 2024
-# Modified: February 19, 2024
+# Modified: February 21, 2024
 
 import asyncio
 import os
@@ -17,6 +17,7 @@ from discord.errors import NotFound
 from discord.ext import commands
 from discord.ext.commands import Cog
 from discord.ext.commands.errors import CommandOnCooldown
+from discord.commands import SlashCommandGroup
 
 from lib import hsize, logger_setup, mkerrembed
 
@@ -156,6 +157,7 @@ def devinfo(pn):
     devtype = None
     density = None
     dierev = None
+    devvoltage = None
     # TODO: Flash part decoding, Elpida (legacy) part decoding
 
     # ===========================
@@ -194,7 +196,7 @@ def devinfo(pn):
 
 
     
-    return {"devtype": devtype, "density": density, "dierev": dierev}
+    return {"devtype": devtype, "density": density, "devvoltage": devvoltage, "dierev": dierev}
 
 class Micron(Cog):
     def __init__(self, client):
@@ -215,7 +217,9 @@ class Micron(Cog):
             dbc.commit()
             dbc.close()
 
-    @discord.slash_command(name = "fbga", description = "Micron FBGA Lookup - Search for a FBGA code (bottom row on IC)")
+    micron = SlashCommandGroup("micron", "Commands for decoding and searching Micron Technology device markings")
+
+    @micron.command(name = "fbga", description = "Micron FBGA Lookup - Search for a FBGA code (bottom row on IC)")
     async def micron_fbga(self, ctx: discord.ApplicationContext, code: discord.Option(str, "FBGA code - not case sensitive", min_length = 5, max_length = 5, required = True)):
         if not re.match("[A-Z0-9]+", code):
             await ctx.respond(embed = mkerrembed(f"Invalid production code"))
@@ -258,7 +262,7 @@ class Micron(Cog):
         cog_logger.info(f"Part number: {pn}")
         
         if pn == "None":
-            embed = discord.Embed(title = f"No part number found for {code}", color = 0x0000FF)
+            embed = discord.Embed(title = f"No part number found for {code}", color = 0xbd03f7)
         
             if res:
                 embed.set_footer(text = f"Cached - {timestamp}")
@@ -268,7 +272,7 @@ class Micron(Cog):
             await ctx.respond(embed = embed)
             return
         else:
-            embed = discord.Embed(title = f"Results for {code}", color = 0x0000FF)
+            embed = discord.Embed(title = f"Results for {code}", color = 0xbd03f7)
 
         if pn.startswith("E"):
             embed.add_field(name = "Part Number - Elpida legacy part", value = pn, inline = False)
@@ -283,6 +287,8 @@ class Micron(Cog):
                     embed.add_field(name = "Type", value = devinfodict["devtype"], inline = False)
                 if devinfodict["density"]:
                     embed.add_field(name = "Density", value = devinfodict["density"], inline = False)
+                if devinfodict["devvoltage"]:
+                    embed.add_field(name = "Voltage", value = devinfodict["devvoltage"], inline = False)
                 if devinfodict["dierev"]:
                     embed.add_field(name = "Die Revision", value = devinfodict["dierev"], inline = False)
 
@@ -295,7 +301,7 @@ class Micron(Cog):
         await ctx.respond(embed = embed)
         return
 
-    @discord.slash_command(name = "flush_fbga", description = "Micron FBGA Lookup - Removes a specific FBGA code from the database")
+    @micron.command(name = "flush", description = "Micron FBGA Lookup - Removes a specific FBGA code from the database")
     async def micron_flush_fbga(self, ctx: discord.ApplicationContext, code: discord.Option(str, "FBGA code - not case sensitive", min_length = 5, max_length = 5, required = True)):
         dbc = sqlite3.connect("data/micron/knowncodes.db")
         cur = dbc.cursor()
@@ -305,7 +311,7 @@ class Micron(Cog):
         if res:
             cur.execute("DELETE FROM knowncodes WHERE fbga=?", (code,))
             dbc.commit()
-            embed = discord.Embed(title = f"{code} removed from database", color = 0x0000FF)
+            embed = discord.Embed(title = f"{code} removed from database", color = 0xbd03f7)
             cog_logger.info(f"FBGA code removed from database: {code}")
             dbc.close()
             await ctx.respond(embed = embed)
@@ -314,7 +320,7 @@ class Micron(Cog):
             await ctx.respond(embed = mkerrembed("FGBA code not found in database"))
             return
 
-    @discord.slash_command(name = "prod_code", description = "Micron FBGA Lookup - Decode production code (top row on IC)")
+    @micron.command(name = "prod", description = "Micron FBGA Lookup - Decode production code (top row on IC)")
     async def micron_prod_code(self, ctx: discord.ApplicationContext, code: discord.Option(str, "Production code - not case sensitive", min_length = 5, max_length = 5, required = True)):
         # See Micron CSN-11 document
         code = code.upper()

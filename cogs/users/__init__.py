@@ -2,7 +2,7 @@
 # File: cogs/users/__init__.py
 # Purpose: User profiling and birthday reminder extension
 # Created: January 27, 2024
-# Modified: February 18, 2024
+# Modified: February 21, 2024
 
 import csv
 import logging
@@ -11,6 +11,7 @@ import sqlite3
 import sys
 import zoneinfo
 from datetime import datetime, time, timedelta, timezone, tzinfo
+from collections import Counter
 
 import discord
 from discord import default_permissions
@@ -18,6 +19,7 @@ from discord.errors import Forbidden, NotFound
 from discord.ext import commands, tasks
 from discord.ext.commands import Cog
 from discord.ext.commands.errors import MemberNotFound
+from discord.commands import SlashCommandGroup
 
 from lib import logger_setup, mkerrembed
 
@@ -70,11 +72,16 @@ class Users(Cog):
     def __init__(self, client):
         self.client = client
 
+    birthday = SlashCommandGroup("birthday", "Birthday related commands")
+    user = SlashCommandGroup("user", "User info related commands")
+    welcome = SlashCommandGroup("welcome", "Welcomer related commands")
+
     @Cog.listener()
     async def on_ready(self):
+        # In case users joined while SLAG is offline
         await refreshusers(self.client)
     
-    @discord.slash_command(name = "birthday", description = "Set your birthday")
+    @birthday.command(name = "set", description = "Set your birthday")
     async def birthday_set(self, ctx: discord.ApplicationContext,
         month: discord.Option(str, "Month of Birth", autocomplete = discord.utils.basic_autocomplete(monthdict.keys()), max_length = 9, required = True),
         day: discord.Option(int, "Day of Birth", min_value = 1, max_value = 31, required = True),
@@ -106,49 +113,7 @@ class Users(Cog):
 
         await ctx.respond("Birthday Set")
 
-    @tasks.loop(time = time(0, 0, tzinfo=timezone.utc))
-    async def birthday_reminder(self):
-        dbc = sqlite3.connect("data/users/guildmeta.db")
-        cur = dbc.cursor()
-
-        cur.execute("SELECT birthdaychannel FROM guildmeta WHERE guildid=?", (ctx.guild.id,))
-
-        channels = [i[0] for i in cur.fetchall()]
-
-        dbc.close()
-
-
-        if channel == 0:
-            cog_logger.error(f"Birthday channel not set for guild: {ctx.guild.id}")
-            await ctx.respond("Birthday channel not set")
-            return
-
-        dbc = sqlite3.connect("data/users/usermeta.db")
-        cur = dbc.cursor()
-
-        res = list(cur.execute("SELECT userid, birthyear, birthmonth, birthday FROM usermeta"))
-        dbc.close()
-
-        now = datetime.now()
-        daynow = now.day
-        monthnow = now.month
-        yearnow = now.year
-
-        msgcount = 0
-        for user in res:
-            # For anyone with a leap day birthday, just have the reminder on the 28th of February
-            if user[3] == 29 and user[2] == 2:
-                user[3] = 28
-
-            if user[3] == daynow and user[2] == monthnow:
-                embed = discord.Embed(title = "Happy Birthday", color = 0x00ffff)
-                embed.add_field(name = "", value = f"It is the birthday of <@{user[0]}>")
-                for channel in channels:
-                    if self.client.get_user(user[0]) in [member.id for member in self.client.get_channel(channel).guild.members]:
-                        await self.client.get_channel(channel).send(embed = embed)
-
-
-    @discord.slash_command(name = "birthdayreminder", description = "Check for user birthdays")
+    @birthday.command(name = "check", description = "Check for user birthdays")
     @default_permissions(administrator = True)
     async def birthday_forcereminder(self, ctx: discord.ApplicationContext):
         dbc = sqlite3.connect("data/users/guildmeta.db")
@@ -192,7 +157,7 @@ class Users(Cog):
                     if user[0] in [member.id for member in self.client.get_channel(channel).members]:
                         await self.client.get_channel(channel).send(embed = embed)
                 
-    @discord.slash_command(name = "birthdayconfig", description = "Configure the birthday reminder feature")
+    @birthday.command(name = "config", description = "Configure the birthday reminder feature")
     @default_permissions(administrator = True)
     async def birthday_config(self, ctx: discord.ApplicationContext, channel: discord.Option(discord.TextChannel, "Channel to send messages in", required = True)):
         if not ctx.guild:
@@ -209,9 +174,49 @@ class Users(Cog):
 
         await ctx.respond(f"Birthday message channel set to {channel.mention}")
 
+    @tasks.loop(time = time(0, 0, tzinfo=timezone.utc))
+    async def birthday_reminder(self):
+        dbc = sqlite3.connect("data/users/guildmeta.db")
+        cur = dbc.cursor()
 
-    @discord.slash_command(name = "userinfo", description = "Displays information about a user")
-    async def userinfo(self, ctx: discord.ApplicationContext, user: discord.Option(discord.User, "User", required = False)):
+        cur.execute("SELECT birthdaychannel FROM guildmeta WHERE guildid=?", (ctx.guild.id,))
+
+        channels = [i[0] for i in cur.fetchall()]
+
+        dbc.close()
+
+
+        if channel == 0:
+            cog_logger.error(f"Birthday channel not set for guild: {ctx.guild.id}")
+            await ctx.respond("Birthday channel not set")
+            return
+
+        dbc = sqlite3.connect("data/users/usermeta.db")
+        cur = dbc.cursor()
+
+        res = list(cur.execute("SELECT userid, birthyear, birthmonth, birthday FROM usermeta"))
+        dbc.close()
+
+        now = datetime.now()
+        daynow = now.day
+        monthnow = now.month
+        yearnow = now.year
+
+        msgcount = 0
+        for user in res:
+            # For anyone with a leap day birthday, just have the reminder on the 28th of February
+            if user[3] == 29 and user[2] == 2:
+                user[3] = 28
+
+            if user[3] == daynow and user[2] == monthnow:
+                embed = discord.Embed(title = "Happy Birthday", color = 0x00ffff)
+                embed.add_field(name = "", value = f"It is the birthday of <@{user[0]}>")
+                for channel in channels:
+                    if self.client.get_user(user[0]) in [member.id for member in self.client.get_channel(channel).guild.members]:
+                        await self.client.get_channel(channel).send(embed = embed)
+
+    @user.command(name = "info", description = "Displays information about a user")
+    async def user_info(self, ctx: discord.ApplicationContext, user: discord.Option(discord.User, "User", required = False)):
         date_format = "%B %d, %Y %I:%M %p"
 
         # Default to the user that invoked the command
@@ -233,7 +238,6 @@ class Users(Cog):
                 # AttributeError may be raised if ctx.guild is None, such as in DMs
                 user = await self.client.fetch_user(user.id)
                 fetched_user = user
-                
 
         if fetched_user.accent_colour:
             user_color = fetched_user.accent_colour
@@ -314,6 +318,57 @@ class Users(Cog):
 
         await ctx.respond(embed = embed)
     
+    @user.command(name = "spotify", description = "Displays known information about a user's Spotify activity")
+    async def user_spotify(self, ctx: discord.ApplicationContext, user: discord.Option(discord.User, "User", required = True)):
+        # adduser is set to false since there would be no data if the user db was just created
+        userdb = await checkuserindb(self.client, user.id, adduser = False)
+
+        if not userdb:
+            await ctx.respond("No information for this user found")
+            return
+
+        dbc = sqlite3.connect(userdb)
+        cur = dbc.cursor()
+    
+        cur.execute("SELECT spotifyartist, spotifyid FROM useractivity")
+        res = (cur.fetchall())
+
+        alltracks = []
+        for entry in res:
+            if entry[1] != "":
+                alltracks.append(entry[0])
+
+        artists = set([])
+        for entry in res:
+            if entry[0] != "":
+                artists.add(entry[0])
+
+        tracks = set([])
+        for entry in res:
+            if entry[1] != "":
+                tracks.add(entry[1])
+
+        trackcount = len(tracks)
+
+        artistsstring = ""
+        if len(artists) > 0:
+            for artist in artists:
+                artistsstring += f"{artist}\n"
+
+        mostlistenedto = ""
+
+        print(Counter(alltracks).items())
+
+        for x, y in list(Counter(alltracks).items()).sort(key = lambda a: a[1]):
+            mostlistenedto += f"{x}: {y}\n"
+
+        embed = discord.Embed(title = f"Spotify information for {user.name}", color = 0x00e000)
+        embed.add_field(name = "Known Artists", value = artistsstring, inline = False)
+        embed.add_field(name = "Unique Track Count", value = str(trackcount), inline = False)
+        embed.add_field(name = "Most listened to", value = mostlistenedto, inline = False)
+            
+        await ctx.respond(embed = embed)
+
     @Cog.listener()
     async def on_guild_join(self, guild):
         cog_logger.info("Bot joined guild, refreshing users")
@@ -445,57 +500,6 @@ class Users(Cog):
         cur.execute("INSERT INTO useractivity VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", entry)
         dbc.commit()
         dbc.close()
-
-    
-    @discord.slash_command(name = "welcomeconfig", description = "Configure the welcomer feature")
-    @default_permissions(administrator = True)
-    async def birthday_config(self, ctx: discord.ApplicationContext, channel: discord.Option(discord.TextChannel, "Channel to send messages in", required = True)):
-        if not ctx.guild:
-            ctx.respond("This command must be used in a guild")
-            return
-        
-        dbc = sqlite3.connect("data/users/guildmeta.db")
-        cur = dbc.cursor()
-
-        cur.execute("UPDATE guildmeta SET welcomerchannel=? WHERE guildid=?", (channel.id, ctx.guild.id))
-
-        dbc.commit()
-        dbc.close()
-
-        await ctx.respond(f"Welcome message channel set to {channel.mention}")
-
-    @Cog.listener()
-    async def on_member_join(self, member):
-        checkuserindb(self.client, member.id)
-        embed = discord.Embed(title="Welcome {member.name}", color=0x00ff00)
-        embed.set_thumbnail(url = member.display_avatar)
-        
-        dbc = sqlite3.connect("data/users/guildmeta.db")
-        cur = dbc.cursor()
-        cur.execute("SELECT welcomerchannel FROM guildmeta WHERE guildid=?", (member.guild.id))
-        res = cur.fetchone()[0]
-        dbc.close()
-
-        if res and res != 0:
-            await self.client.get_channel(res).send(embed = embed)
-        else:
-            cog_logger.warn("Welcome message channel not set or guild not found")
-
-    @Cog.listener()
-    async def on_member_remove(self, member):
-        embed = discord.Embed(title="Member Left: {member.name}", color=0xff0000)
-        embed.set_thumbnail(url = member.display_avatar)  
-
-        dbc = sqlite3.connect("data/users/guildmeta.db")
-        cur = dbc.cursor()
-        cur.execute("SELECT welcomerchannel FROM guildmeta WHERE guildid=?", (member.guild.id))
-        res = cur.fetchone()[0]
-        dbc.close()
-
-        if res and res != 0:
-            await self.client.get_channel(res).send(embed = embed)
-        else:
-            cog_logger.warn("Welcome message channel not set or guild not found")
 
 async def checkuserindb(client, userid, adduser = True):
     try:

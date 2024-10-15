@@ -1,4 +1,5 @@
 py-cord
+pydantic
 psutil
 aiohttp
 beautifulsoup4

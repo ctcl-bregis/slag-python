@@ -2,7 +2,7 @@
 # File: app.py
 # Purpose: Functions used by the bot, similar to lib.rs 
 # Created: January 25, 2024
-# Modified: February 7, 2024
+# Modified: October 5, 2024
 
 import csv
 import logging

@@ -159,13 +159,5 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Production token
-token.txt
-
-# Logs
-logs/
-
-# User data
-birthdays.json
-*.db
-data/
+# Project-specific
+/config.json

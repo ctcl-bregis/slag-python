@@ -2,7 +2,7 @@
 # File: cogs/base.py
 # Purpose: Base command definitions
 # Created: January 26, 2024
-# Modified: October 5, 2024
+# Modified: February 18, 2024
 
 import multiprocessing
 import os
@@ -22,6 +22,15 @@ from discord.ext.commands.errors import MemberNotFound
 
 from lib import kb2hsize, msgsplit
 
+# Display online status
+status = {
+    "online": "Online",
+    "offline": "Offline or invisible",
+    "idle": "Idle",
+    "dnd": "Do Not Disturb",
+    "do_not_disturb": "Do Not Distrub"
+}
+
 class Base(Cog):
     def __init__(self, client):
         self.client = client
@@ -33,14 +42,14 @@ class Base(Cog):
     $sysinfo - Reports information about the host system
     $userinfo - Reports information about a specific user
     """
-        embed = discord.Embed(title = "Commands", color = 0x999999)
+        embed = discord.Embed(title = "Commands", color = 0xf0d000)
         embed.add_field(name = "User Commands", value = help_text_user, inline = False)
      
         await ctx.respond(embed = embed)
 
     @discord.slash_command()
     async def sysinfo(self, ctx: discord.ApplicationContext):
-        embed = discord.Embed(title="Host System Information", color=0x999999)
+        embed = discord.Embed(title="Host System Information", color=0xf0d000)
 
         # CTCL hardware-specific fields that checks environment variables, e.g. for CTCL-SVCS-SLAG /etc/environment as of February 10, 2024:
         # hwcodename="Lisdexamfetamine"
@@ -122,15 +131,16 @@ class Base(Cog):
 
         await ctx.respond(embed = embed)
 
+    #@commands.command()
+    #async def botinfo(self, ctx: discord.ApplicationContext):
+    #    self
+
     # Admin only for now since this could be spammed and can send messages to any channel
     @discord.slash_command()
     @has_permissions(administrator = True)
     async def channellist(self, ctx, 
         targetchannel: discord.Option(discord.TextChannel, "Channel to send list - defaults to the current channel", required = False), 
         role: discord.Option(discord.Role, "Only show channels that this role can see - defaults to @everyone", required = False)):
-
-        if targetchannel == None:
-            targetchannel = ctx.channel
 
         msg = "# Channels\n"
         channeldict = {}
@@ -193,8 +203,8 @@ class Base(Cog):
 
             for part in msg:
                 await targetchannel.send(part)
+                await ctx.respond(f"Sent list to {targetchannel.mention}")
 
-            await ctx.respond(f"Sent list to {targetchannel.mention}")
         else:
             await targetchannel.send(msg)
             await ctx.respond(f"Sent list to {targetchannel.mention}")
